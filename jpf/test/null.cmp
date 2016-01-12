@@ -1,0 +1,7 @@
+START
+ARRAY
+STARTMEMBER
+ERROR 'Literal \0 illegal, use escape' line 1 col 3
+STRING '' (1)
+ENDMEMBER
+END

@@ -1,0 +1,46 @@
+START
+ARRAY
+STARTMEMBER
+STRING 'basic heredoc test' (2)
+ENDMEMBER
+STARTMEMBER
+STRING 'basic heredoc
+  with indent
+test' (2)
+ENDMEMBER
+STARTMEMBER
+STRING '  basic heredoc with all indent test' (2)
+ENDMEMBER
+STARTMEMBER
+STRING '' (2)
+ENDMEMBER
+STARTMEMBER
+STRING 'blank line with spaces test
+
+more' (2)
+ENDMEMBER
+STARTMEMBER
+STRING 'blank line with no spaces test
+
+more' (2)
+ENDMEMBER
+STARTMEMBER
+STRING 'initial/terminal blank line no spaces' (2)
+ENDMEMBER
+STARTMEMBER
+STRING 'initial/terminal blank line with spaces' (2)
+ENDMEMBER
+STARTMEMBER
+STRING 'hello' (2)
+ENDMEMBER
+STARTMEMBER
+STRING 'hi
+end
+of
+file' (2)
+ENDMEMBER
+STARTMEMBER
+ERROR 'Unterminated heredoc' line 46 col 0
+STRING '' (1)
+ENDMEMBER
+END

@@ -1,0 +1,19 @@
+START
+ASSOC
+STARTKEY 'a'
+ARRAY
+STARTMEMBER
+STRING 'x' (1)
+ERROR 'Got key 'y' where member expected' line 3 col 4
+ERROR 'Consecutive literals' line 4 col 7
+ENDMEMBER
+ENDKEY 'a'
+STARTKEY 'b'
+ASSOC
+STARTKEY 'c'
+STRING 'd' (1)
+ERROR 'Got member where key expected' line 6 col 3
+ERROR 'Consecutive literals' line 7 col 6
+ENDKEY 'c'
+ENDKEY 'b'
+END

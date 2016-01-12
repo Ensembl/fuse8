@@ -1,0 +1,33 @@
+START
+ARRAY
+STARTMEMBER
+ERROR 'illegal control character' line 2 col 1
+ERROR 'illegal control character' line 2 col 2
+ERROR 'illegal control character' line 2 col 3
+ERROR 'illegal control character' line 2 col 4
+ERROR 'illegal control character' line 2 col 5
+ERROR 'illegal control character' line 2 col 6
+ERROR 'illegal control character' line 2 col 7
+ERROR 'illegal control character' line 2 col 8
+ERROR 'illegal control character' line 2 col 9
+ERROR 'illegal control character' line 3 col 1
+ERROR 'illegal control character' line 3 col 2
+ERROR 'illegal control character' line 3 col 3
+ERROR 'illegal control character' line 3 col 4
+ERROR 'illegal control character' line 3 col 5
+ERROR 'illegal control character' line 3 col 6
+ERROR 'illegal control character' line 3 col 7
+ERROR 'illegal control character' line 3 col 8
+ERROR 'illegal control character' line 3 col 9
+ERROR 'illegal control character' line 3 col 10
+ERROR 'illegal control character' line 3 col 11
+ERROR 'illegal control character' line 3 col 12
+ERROR 'illegal control character' line 3 col 13
+ERROR 'illegal control character' line 3 col 14
+ERROR 'illegal control character' line 3 col 15
+ERROR 'illegal control character' line 3 col 16
+ERROR 'illegal control character' line 3 col 17
+ERROR 'illegal control character' line 3 col 18
+STRING '' (2)
+ENDMEMBER
+END

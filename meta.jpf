@@ -1,0 +1,38 @@
+defaults:
+  all:
+    user: dan
+    group: dan
+  files:
+    perms: 0444
+  dirs:
+    perms: 0755
+
+files: - dir: /
+
+       - file: /hello
+         size: 5
+         uri: file:///home/dan/fuse8/test/hello
+
+       - file: /world
+         size: 5
+         perms: 0400
+         uri: file:///home/dan/fuse8/test/world
+
+       - file: /inner/a
+         size: 1
+         uri: file:///home/dan/fuse8/test/a
+
+       - dir: /inner/
+
+       - file: /inner/b
+         size: 1048576
+      #   uri: http://localhost/test.dat
+         uri: http://ftp.ensembl.org/pub/data_files/homo_sapiens/GRCh38/dna_methylation_feature/dna_methylation_feature/Fibrobl_5mC_ENCODE_Husdonalpha_RRBS_FDR_1e-4/wgEncodeHaibMethylRrbsFibroblDukeRawDataRep.bb
+
+       - file: /inner/c
+         size: 156
+         uri: http://ftp.ensembl.org/update-sym-links
+
+       - link: /inner/d
+         target: ../hello
+

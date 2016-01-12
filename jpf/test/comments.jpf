@@ -1,0 +1,19 @@
+  # comment at start (indented)
+- x # comment here
+- # comment
+- x: #comment
+     y: z # comment
+- "#not a comment": # a comment
+- n: n
+     # a comment
+  p: p
+  # a comment
+  q: q
+# a comment
+  r:
+     # a comment
+    r
+  s:
+# a comment
+   s
+# trailing comment (not no EOF, edit in binary mode with noendofline set)

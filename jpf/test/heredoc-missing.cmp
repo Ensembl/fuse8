@@ -1,0 +1,7 @@
+START
+ARRAY
+STARTMEMBER
+ERROR 'Unterminated heredoc' line 2 col 6
+STRING '' (1)
+ENDMEMBER
+END

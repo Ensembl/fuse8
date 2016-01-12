@@ -1,0 +1,8 @@
+START
+ARRAY
+STARTMEMBER
+STRING 'hello <eof' (1)
+ERROR 'Consecutive literals' line 3 col 10
+ERROR 'Consecutive literals' line 4 col 6
+ENDMEMBER
+END

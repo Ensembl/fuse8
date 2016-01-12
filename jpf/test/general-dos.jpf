@@ -1,0 +1,18 @@
+- a:
+    - m
+    - n
+  b:
+    - p
+    - q
+- w:
+    x: xx   
+    y: yy
+    z: zz
+    "":
+- "a: b"
+- "c: d": e: f
+- -
+- mm:m
+- nn: n
+- p: p:p: p:p:p: p:p:p:p:
+                  q

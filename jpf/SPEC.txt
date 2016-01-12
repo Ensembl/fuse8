@@ -1,0 +1,305 @@
+JPF - JSON Presentation Format
+==============================
+
+Introduction
+------------
+
+JPF is a file format for human-authored files for APIs which expect JSON-type
+structures. It exactly shares the underlying JSON data model, but is
+syntactially quite distinct, focusing on readability, using a format which
+was inspired by and superficially resembles YAML, but is much simpler. JPF
+is designed with readability as its priority and does not attempt to surplant
+JSON in machine storage or interchange. Rather, it is designed for config
+files, log files, and the like.
+
+The readability of many formats is ruined by various syntactic particles
+designed to make them easily and unambiguously parsable by an LR(1) parser,
+usually in the form of a liberal scattering of punctuation in the form of
+quotes, backslashes and various brackets. While apparently trivial, such
+/format junk/ can ruin readability. YAML correctly identified this as a major
+readability problem and addressed it in a number of ways, the principal
+innovation being the use of python-style grouping-by-indent. Unfortunately,
+YAML predates the ubiquity of the JSON data-model, and so is not designed
+to unambiguously map to it, and also attempted to address very many present
+and future problems, leading to a very large spec which it can be difficult
+to understand and implement in its entirety.
+
+JPF syntax takes the JSON data model and maps it to a small YAML-like
+syntax. In the case of simple examples, and those contrived to demonstrate
+complexities, such as those below, the increased clarity may not be
+self-evident, but YAML has shown its value in such situations and I
+anticipate JPF will bear similar fruit in real-world examples.
+
+Preliminary matters
+-------------------
+
+JPF files are UTF8 encoded and do not include BOMs. By design, they support
+both standard, and "DOS-style" line endings without additional processing.
+Tabs are prohibited as ambiguous. The amount by which a line is indented
+determines the group to which it belongs, the amount of indent being defined
+as the number of leading spaces on a line. Blank lines, or lines containing
+only spaces or comments, are not considered when considered when determining
+indentation. The actual number of spaces to use at each indentation level is
+the author's choice, and need not be fixed between groups. Only U+0020, the
+ASCII space, is a valid horizontal space.
+
+Except in heredocs (see later), four characters are considered to be valid
+line endings, U+0010 - U+0013, aka \r, \n, \f and \v. As blank lines are of
+no consequence in JPF, the use of multiple of such at the end of a line is
+also of no conseqeunce, and so unusual line-ending combinations are implicitly
+supported.
+
+Comments take the form of an initial # followed by the comment itself, to
+the end of the line.
+
+Groups
+------
+
+There are two types of groups, corresponding to the arrays and objects of
+JSON. The members of these groups are directly aligned underneath each
+other without any intervening line of lower indentation. Array groups are
+introduced with the '- ' sequence. Nested arrays are represented by adding
+groups at higher indentation. For example, the JSON array
+
+  ["a",["m","n"],"b",["x","y"],"c"]
+
+can be represented in JPF as
+
+  - a
+
+  - - m
+    - n
+
+  - b
+
+  - - x
+    - y
+
+  - c
+
+Object groups are introduced with a key string followed by ":". Strings are
+described later, but alphabetic keys can be represented without any extra
+punctuation. For example, the JSON object
+
+  {"a": "aa","x": "xx"}
+
+can be represented in JPF as
+
+  a: aa
+  x: xx
+
+keys introduced with ':' and array members introduced with '-' may not be
+mixed within a single group. However, as with JSON, complete objects and
+arrays may, of course, by composed arbitrarily. For example
+
+  {"a": ["apple","avocado"],
+   "b": {"bears":["polar","grizzly"],"bananas":"yellow"},
+   "c": "cucumber"}
+
+may be represented in JPF as
+
+  a: - apple
+     - avocado
+
+  b:
+     bears: - polar
+            - grizzly
+
+     bananas: yellow
+
+  c: cucumber
+
+Strings
+-------
+
+Strings may be represented in one of three formats, quoted, unquoted and
+heredoc. For heredoc see later.
+
+An unquoted string is just a sequence of characters which cannot be otherwise
+interpreted, and extends to the end of the line (or further, with escaping).
+Throughout an unquoted string, "#" must be escaped (lest a comment be started)
+and leading and trailing spaces are trimmed. The colon of ": " or terminal ":"
+must often also be escaped, and it is never an error to do so. Colons not
+followed by spaces of end-of-line (such as in URIs or times) never need to be
+escaped.
+
+A backslash introduces a backslash escape. A literal backslash comprises two
+backslashes. A backslash followed by a non-alphanumeric character always
+removes any special meaning from that symbol. For example, \# represents
+a literal "#" in an unquoted string, and removes the special meaning of #,
+which is to introduce a comment. Even if a non-alphanumeric character has no
+special meaning, it is not an error to escape it (though it is unnecessary).
+Alphanumeric characters following \ introduce special meaning, such characters
+never have special meaning without a \. For exmaple \n introduces a newline
+to a string. It is an error to use an undefined alphanumeric backslash
+escape, as those which are unused are reserved. For the purposes of this
+section, alphanumeric refers to [A-Za-z0-9] in ASCII only.
+
+JPF currently defines backslash a, b, f, n, r, and v with their usual control
+character meanings, and \uXXXX as JSON, to represent the character U+XXXX. As
+an extension to JSON, to represent non-BMP Unicode characters, \wXXXXXX is
+also supported as an escape, representing U+XXXXXX. JSON is ambiguous as to
+how non-BMP characters can be encoded and so can only do so via direct
+embedding in the file. As such characters /can/ be so represented, it does
+not break compatibility for JPF to have an alternative syntax for them.
+
+It is therefore guaranteed that any character sequence starting with an
+alphanumeric character or an escaped punctuation character will be interpreted
+as an unquoted string. Many punctuation characters need not be quoted either,
+but for forwards compatibility it is safest to do so.
+
+A quoted string is introduced and closed by by ". There is no single-quote
+alternative. A quoted string requires the backslash escaping only of backslash
+itself and the closing ". Aribtrary characters may appear in-between them. The
+effects of backslash escaping are identical to those of unescaped strings.
+
+The following example contains a number of unquoted and unquoted
+string examples to demonstrate the above. In this example, the strings are
+generally not in the clearest form for JPF, but are shown to make points
+from the above section evident by example.
+
+  do: Also known as C.
+  re:   Known as D # Which is after C.
+  mi: "Known as E. E# is F"
+  fa: This is F\: After E
+  so: \"A real fun note\".
+  la: "This one
+  is next"
+  ti: "Then\nthis one"
+
+and is equivalent to the following JSON.
+
+  {"do": "Also known as C.",
+   "re": "Known as D",
+   "mi": "Known as E. E# is F",
+   "fa": "This if F: after E",
+   "so": "\"A real fun note\".",
+   "la": "This one\nis next",
+   "ti": "Then\nthis one"}
+
+Implicit Strings
+----------------
+
+A group member may appear to have no contents, in this situation an empty-
+string is implicitly assumed. It is considered to be a variaty of unquoted
+string. For example
+
+  - a
+  -
+  - z
+
+is equivalent to
+
+  ["a","","z"]
+
+Empty arrays and objects, by contrast, are introduced by special symbols
+(see later).
+
+Numbers
+-------
+
+JSON rigorously distingiushes strings from numbers in its data model.
+Naturally, JPF does the same. All numbers in JPF must be introduced by a +
+or -, otherwise they are interpreted as unquoted strings. For example
+
+  a: 0
+  b: +0
+
+is interpreted as
+
+  {"a": "0", "b": 0}.
+
+
+Naturally, +0 and -0 are equivalent. Otherwise the format of a JPF number is
+per-JSON.
+
+Special Symbols
+---------------
+
+JSON introduces three special symbols, true, false, and null. These are
+represented in JPF with a leading !. Also, the empty list is represented
+by !- and empty object by !:, as they have no other representation in JPF.
+As a mnemonic, ! is often used in languages to mean "NO" and the following
+symbol is that mark used to introduce members of the appropriate type.
+
+For example:
+
+  true: !true
+  false: !false
+  null: !null
+  array: !-
+  object: !:
+
+is equivalent to
+
+  {"true": true, "false": false, "null", null, "array": [], "object": {}}
+
+Keys and Colons
+---------------
+
+The colon of a key can be preceeded by either a quoted or unquoted string,
+and such a string is fully first-class (it can include escapes, etc, as per
+when a string is used in other contexts). This allows, for example, an
+empty string to be used as a key, as is allowed by the JSON data model.
+
+A colon need sometimes be escaped in an unquoted string. It never needs to
+be quoted unless it ends a word. This allows its use in times, URIs, etc.
+It also does not need to be escaped if it is not in the first word of an
+unquoted string. Once the first space has been seen, any further words may
+use a colon freely. It is, of course, never an error to escape it anyway.
+For example
+
+  a: apples: fruit
+  b: bananas are: plants
+  c: http://example.com/
+
+is interpreted as
+
+  {"a": {"apples": "fruit"},
+   "b": "bananas are: plants",
+   "c": "http://example.com/" }
+
+Heredocs
+--------
+
+Heredocs allow the inclusion of significant chunks of many kinds of text
+with even less clutter. Unlike quoted and unquoted strings they cannot
+represent all strings, but cover the vast majority of strings used in human
+and computer languages. A heredoc is introduced with a <, followed by a
+non-blank end-of-string marker of the user's choosing. The text then
+follows on subsequent lines until a line containing only the specified
+marker (and possibly some spaces) occurs. For example
+
+  a: < end-of-speech
+    Here is my speech.
+    It goes on a bit.
+
+    Over many lines.
+    end-of-speech
+
+The marker line itself is not included. Leading spaces are removed such that
+the least-indented line in the heredoc is in the first column. The marker line
+is included in this calculation, such that a less-indented marker line can be
+deliberately used to introduce leading spaces to all lines. Lines containing
+only spaces are replaced with entirely blank lines, and trailing whitespace
+removed from all lines. No backslash escapes are available. There is no method
+for uncollapsing newlines, or such. YAML adds considerable complexity at this
+point whereas most languages to be represented here include markup to allow
+contiuation where such is relevant. The added clarity of clear escape
+sequences was seen as more important. Where such is not sufficient, heredocs
+should be replaced by quoted strings.
+
+Within a heredoc a newline is defined as one of the four usual vertical
+space characters followed by an arbitrary sequence of the remaining three.
+They are replaced by a single \n. This covers the major and many minor line
+ending conventions.
+
+Further Information
+-------------------
+
+Throughout the definition of JPF, a middle way was sought between parser
+complexity, clarity, expressive power, and ease of use.
+
+For further information, see the testcases and reference parser. Comments,
+suggestions, and requests for clarification are welcome.
+

@@ -1,0 +1,16 @@
+# the next blank line is completely empty
+- - x
+
+  - y
+# the next blank line is very long
+- - x
+          
+  - y
+# the next blank line is completely empty
+- x: y: z
+
+     a: b
+# the next blank line is very long
+- x: y: z
+                              
+     a: b 

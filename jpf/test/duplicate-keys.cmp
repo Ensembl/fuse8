@@ -1,0 +1,22 @@
+START
+ARRAY
+STARTMEMBER
+ASSOC
+STARTKEY 'n'
+STRING 'a' (1)
+ENDKEY 'n'
+STARTKEY 'm'
+STRING 'm' (1)
+ENDKEY 'm'
+ERROR 'Duplicate key 'n'' line 3 col 4
+ERROR 'Consecutive literals' line 4 col 7
+ENDMEMBER
+STARTMEMBER
+ASSOC
+STARTKEY 'n'
+STRING 'c' (1)
+ENDKEY 'n'
+ERROR 'Duplicate key 'n'' line 5 col 4
+ERROR 'Consecutive literals' line 6 col 10
+ENDMEMBER
+END

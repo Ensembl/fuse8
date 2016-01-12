@@ -1,0 +1,29 @@
+# Bad indents
+c:
+  - d
+   - e
+d:   - e
+    - f
+e: - - g
+    - h
+i: - - j
+      - k
+v:
+   w:
+  x:
+z:
+  zz
+  zzz
+# Good indents
+m:
+   n: - o
+      - p
+   q:   - r
+        - s
+t:
+     u:
+      v:
+n: n: h
+   nn: hh
+   "nnn": hh
+

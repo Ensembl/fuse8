@@ -1,0 +1,27 @@
+START
+ARRAY
+STARTMEMBER
+NUM 1.000000
+ERROR 'Cannot push onto literal' line 1 col 6
+ERROR 'Consecutive literals' line 2 col 9
+ENDMEMBER
+STARTMEMBER
+ASSOC
+ERROR 'Cannot push onto literal' line 2 col 5
+ERROR 'Consecutive literals' line 3 col 8
+ENDMEMBER
+STARTMEMBER
+ARRAY
+ERROR 'Cannot push onto literal' line 3 col 5
+ERROR 'Consecutive literals' line 4 col 8
+ENDMEMBER
+STARTMEMBER
+STRING 'v' (1)
+ENDMEMBER
+STARTMEMBER
+ASSOC
+STARTKEY ''
+STRING 'b' (1)
+ENDKEY ''
+ENDMEMBER
+END

@@ -1,0 +1,45 @@
+- <eof
+  basic heredoc test
+  eof
+- <eof
+  basic heredoc
+    with indent
+  test
+  eof
+- <eof
+    basic heredoc with all indent test
+  eof
+- <eof
+eof
+- <eof
+  blank line with spaces test
+       
+  more
+  eof
+- <eof
+  blank line with no spaces test
+
+  more
+  eof
+- <eof
+
+  initial/terminal blank line no spaces
+
+  eof
+- <eof
+     
+  initial/terminal blank line with spaces
+     
+  eof
+- <eof # comment on header line
+  hello
+  eof
+- < end of file # spaces before/after/in terminator
+  hi
+  end
+  of
+  file
+  end of file
+- < eof
+  oops, unterminated
+

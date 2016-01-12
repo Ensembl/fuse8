@@ -1,0 +1,15 @@
+{
+   libevent
+   Memcheck:Leak
+   fun:malloc
+   obj:/usr/lib/x86_64-linux-gnu/libevent_pthreads-2.0.so.5.1.9
+   ...
+}
+{
+   libevent2
+   Memcheck:Leak
+   fun:malloc
+   ...
+   obj:/usr/lib/i386-linux-gnu/libevent_pthreads-2.0.so.5.1.9
+   ...
+}

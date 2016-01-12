@@ -1,0 +1,21 @@
+START
+ARRAY
+STARTMEMBER
+ERROR 'Unexpected escape sequence' line 1 col 3
+STRING '' (1)
+ENDMEMBER
+STARTMEMBER
+ERROR 'tabs illegal in JSONpf' line 2 col 3
+STRING '' (1)
+ENDMEMBER
+STARTMEMBER
+ERROR 'illegal control character' line 3 col 3
+STRING '' (1)
+ENDMEMBER
+STARTMEMBER
+STRING 'a' (1)
+ERROR 'Cannot push onto literal' line 5 col 2
+ERROR 'Consecutive literals' line 6 col 5
+ERROR 'Consecutive literals' line 7 col 5
+ENDMEMBER
+END

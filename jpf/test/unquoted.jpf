@@ -1,0 +1,13 @@
+# Careful, this file needs no EOL at end. Edit as a binary file.
+- \ 
+- abcABC123\#\"\-\:\a\b\f\v\r\n #hello
+- a\u0061 é\u00E9 €\u20AC\w0020AC# hi
+- \w10FFFF
+- hello:\
+\#world
+- \n: y
+- \
+: z
+  x: w
+- \ : ww
+- suddenly end

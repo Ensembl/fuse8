@@ -1,0 +1,12 @@
+START
+ASSOC
+STARTKEY 'a'
+STRING 'a' (1)
+ENDKEY 'a'
+STARTKEY 'b'
+STRING 'b' (1)
+ENDKEY 'b'
+ERROR 'Duplicate key 'a'' line 3 col 2
+ERROR 'Consecutive literals' line 4 col 5
+ERROR 'Consecutive literals' line 5 col 5
+END

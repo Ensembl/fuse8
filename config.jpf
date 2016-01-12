@@ -1,0 +1,39 @@
+logging:
+  levels:
+    "": DEBUG
+    request: DEBUG
+    http: DEBUG
+  dest:
+    fd: +2
+stats:
+  filename: stats.log
+  interval: +10
+
+sources:
+  smallcache:  type: cachemmap
+               filename: small.dat
+               block: +65536
+               entries: +16
+               set_size: +8
+
+  bigcache:  type: cachefile
+             filename: big.dat
+             block: +65536
+             entries: +16384
+             set_size: +8
+
+  metadata: type: meta
+            filename: meta.jpf
+            #filename: 83.jpf
+
+  http: type: http
+
+  file: type: file
+        root: /home/dan
+
+interfaces:
+  fuse: type: fuse
+        name: fuse
+        path: mnt
+        kcache: !false
+
