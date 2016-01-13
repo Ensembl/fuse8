@@ -341,6 +341,7 @@ struct interface * ic_fuse_make(struct running *rr,struct jpf_value *conf) {
   fi->sl = rr->sl; // XXX use rr
   fi->si = rr->si;
   fi->ic = ic;
+  fi->se = 0;
   fi->mountpoint = 0;
   fi->kcache = jpfv_bool(jpfv_lookup(conf,"kcache"));
   if(fi->kcache==-2) { fi->kcache = 1; }
