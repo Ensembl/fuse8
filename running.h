@@ -39,6 +39,6 @@ struct running {
   struct timeval stat_timer_interval;
 };
 
-void run(void);
+void run(char *);
 
 #endif

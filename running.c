@@ -3,6 +3,7 @@
 #include <event2/thread.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string.h>
 
 #include "running.h"
 #include "jpf/jpf.h"
@@ -157,16 +158,20 @@ void register_source_types(struct running *rr) {
   run_src_register(rr,"file",source_file2_make);
 }
 
-void run_config(struct running *rr) {
+void run_config(struct running *rr,char *conf_file) {
   char *path,*dir;
 
   // XXX support options, multiple locations
-  log_debug(("Looking for config file"));
-  path = self_path();
-  path_separate(path,&dir,0);
-  free(path);
-  path = make_string("%s/config.jpf",dir);
-  free(dir);
+  if(!conf_file) {
+    log_debug(("Looking for config file"));
+    path = self_path();
+    path_separate(path,&dir,0);
+    free(path);
+    path = make_string("%s/config.jpf",dir);
+    free(dir);
+  } else {
+    path = strdup(conf_file);
+  }
   log_info(("Reading config from '%s'",path));
   if(load_config(rr,path)) {
     log_error(("Error reading config file"));
@@ -193,7 +198,7 @@ void closedown(struct running *rr) {
   event_base_free(rr->eb);
 }
 
-void run(void) {
+void run(char *conf_file) {
   struct running rr;
   struct event *sig1_ev,*sig2_ev;
 
@@ -201,7 +206,7 @@ void run(void) {
   setup_running(&rr);
   register_interface_types(&rr);
   register_source_types(&rr);
-  run_config(&rr);
+  run_config(&rr,conf_file);
   start_stats_timer(&rr);
   
   ref_release(&(rr.ic_running));
