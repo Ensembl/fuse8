@@ -12,3 +12,7 @@ v0.01 is currently undergoing live testing on mirror sites. Prior to release the
 * Read/Write locking for file locks
 * hit log.
 
+Following will be fixed at some point, but probably post initial deployment:
+
+* speculative pulls (warm caches)
+* pull metadata
