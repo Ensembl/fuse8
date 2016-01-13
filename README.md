@@ -11,6 +11,7 @@ v0.01 is currently undergoing live testing on mirror sites. Prior to release the
 * Why are stats quantised to second when tracked in us. Fix that.
 * Read/Write locking for file locks
 * hit log.
+* better lru
 
 Following will be fixed at some point, but probably post initial deployment:
 
