@@ -124,38 +124,41 @@ static void ic_done(void *data,void *priv) {
   ic_release(ic);
 }
 
-void run(void) {
-  struct running rr;
-  struct event *sig1_ev,*sig2_ev;
-  char *path,*dir;
-
-  evthread_use_pthreads();
-  rr.stats_fd = -1;
-  rr.have_quit = 0;
-  rr.eb = event_base_new();
-  rr.edb = evdns_base_new(rr.eb,1);
-  rr.sq = sq_create(rr.eb);
-  rr.sl = sl_create();
-  rr.si = syncif_create(rr.eb);
-  rr.icc = array_create(ic_done,0);
-  rr.src = array_create(0,0);
-  rr.src_shop = assoc_create(0,0,0,0);
-  rr.ic_shop = assoc_create(0,0,0,0);
-  ref_create(&(rr.need_loop));
-  ref_create(&(rr.ic_running));
+void setup_running(struct running *rr) {
+  rr->stats_fd = -1;
+  rr->have_quit = 0;
+  rr->eb = event_base_new();
+  rr->edb = evdns_base_new(rr->eb,1);
+  rr->sq = sq_create(rr->eb);
+  rr->sl = sl_create();
+  rr->si = syncif_create(rr->eb);
+  rr->icc = array_create(ic_done,0);
+  rr->src = array_create(0,0);
+  rr->src_shop = assoc_create(0,0,0,0);
+  rr->ic_shop = assoc_create(0,0,0,0);
+  ref_create(&(rr->need_loop));
+  ref_create(&(rr->ic_running));
   /* Need to process syncqueue closing events before exiting mainloop */
-  ref_on_free(&(rr.need_loop),do_exit,rr.eb);
-  ref_until_free(&(rr.need_loop),sq_ref(rr.sq));
+  ref_on_free(&(rr->need_loop),do_exit,rr->eb);
+  ref_until_free(&(rr->need_loop),sq_ref(rr->sq));
   /* keep a ref to need_loop for all interfaces: released in ic_running */
-  ref_on_release(&(rr.ic_running),interfaces_quit,&rr);
+  ref_on_release(&(rr->ic_running),interfaces_quit,rr);
+}
 
-  run_ic_register(&rr,"fuse",ic_fuse_make);
+void register_interface_types(struct running *rr) {
+  run_ic_register(rr,"fuse",ic_fuse_make);
+}
 
-  run_src_register(&rr,"cachefile",source_cachefile2_make);
-  run_src_register(&rr,"cachemmap",source_cachemmap2_make);
-  run_src_register(&rr,"meta",source_meta_make);
-  run_src_register(&rr,"http",source_http_make);
-  run_src_register(&rr,"file",source_file2_make);
+void register_source_types(struct running *rr) {
+  run_src_register(rr,"cachefile",source_cachefile2_make);
+  run_src_register(rr,"cachemmap",source_cachemmap2_make);
+  run_src_register(rr,"meta",source_meta_make);
+  run_src_register(rr,"http",source_http_make);
+  run_src_register(rr,"file",source_file2_make);
+}
+
+void run_config(struct running *rr) {
+  char *path,*dir;
 
   // XXX support options, multiple locations
   log_debug(("Looking for config file"));
@@ -165,15 +168,42 @@ void run(void) {
   path = make_string("%s/config.jpf",dir);
   free(dir);
   log_info(("Reading config from '%s'",path));
-  if(load_config(&rr,path)) {
+  if(load_config(rr,path)) {
     log_error(("Error reading config file"));
     logging_done();
     exit(1);
   }
   free(path);
-  rr.stat_timer = event_new(rr.eb,-1,EV_PERSIST,stat_timer_tick,&rr);
-  event_add(rr.stat_timer,&(rr.stat_timer_interval));
+}
 
+void start_stats_timer(struct running *rr) {
+  rr->stat_timer = event_new(rr->eb,-1,EV_PERSIST,stat_timer_tick,rr);
+  event_add(rr->stat_timer,&(rr->stat_timer_interval));
+}
+
+void closedown(struct running *rr) {
+  array_release(rr->src);
+  array_release(rr->icc);
+  assoc_release(rr->src_shop);
+  assoc_release(rr->ic_shop);
+  si_release(rr->si);
+  event_del(rr->stat_timer);
+  event_free(rr->stat_timer);
+  evdns_base_free(rr->edb,1);
+  event_base_free(rr->eb);
+}
+
+void run(void) {
+  struct running rr;
+  struct event *sig1_ev,*sig2_ev;
+
+  evthread_use_pthreads();
+  setup_running(&rr);
+  register_interface_types(&rr);
+  register_source_types(&rr);
+  run_config(&rr);
+  start_stats_timer(&rr);
+  
   ref_release(&(rr.ic_running));
 
   event_add(sq_consumer(rr.sq),0);
@@ -183,22 +213,12 @@ void run(void) {
   evsignal_add(sig2_ev=evsignal_new(rr.eb,SIGTERM,user_quit,&rr),0);
   log_info(("Starting event loop"));
   event_base_loop(rr.eb,0);
-
-  array_release(rr.src);
-  array_release(rr.icc);
-  assoc_release(rr.src_shop);
-  assoc_release(rr.ic_shop);
-
   log_info(("Event loop finished"));
-  si_release(rr.si);
-  event_del(rr.stat_timer);
-  event_free(rr.stat_timer);
   event_del(sig1_ev);
   event_del(sig2_ev);
   event_free(sig1_ev);
   event_free(sig2_ev);
-  evdns_base_free(rr.edb,1);
-  event_base_free(rr.eb);
+  closedown(&rr);
   log_info(("Bye!"));
   logging_done();
 }
