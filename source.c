@@ -48,6 +48,7 @@ struct source * src_create(void) {
   src->readlink = 0;
   src->bytes = 0;
   src->hits = 0;
+  src->writes = 0;
   src->name = strdup("anon");
   src->r_time = src->w_time = 0;
   src->errors = 0;
@@ -70,6 +71,7 @@ void src_collect_rtime(struct source *src,int64_t rtime) {
 
 void src_collect_wtime(struct source *src,int64_t wtime) {
   src->w_time += wtime;
+  src->writes++;
   log_debug(("%s: wtime=%"PRId64"us",src->name,src->w_time));
 }
 
@@ -84,6 +86,7 @@ void src_collect(struct source *src,int64_t length) {
 
 void src_global_stats(struct source *src,struct jpf_value *out) {
   jpfv_assoc_add(out,"hits_total",jpfv_number_int(src->hits));
+  jpfv_assoc_add(out,"writes_total",jpfv_number_int(src->writes));
   jpfv_assoc_add(out,"bytes_total",jpfv_number_int(src->bytes));
   jpfv_assoc_add(out,"rtime_secs",jpfv_number(src->r_time/1000000.0));
   jpfv_assoc_add(out,"wtime_secs",jpfv_number(src->w_time/1000000.0));

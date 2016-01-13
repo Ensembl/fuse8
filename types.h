@@ -57,7 +57,7 @@ struct source {
   src_stats_fn stats;
 
   /* stats */
-  uint64_t bytes,hits,r_time,w_time,errors;
+  uint64_t bytes,hits,r_time,w_time,errors,writes;
 };
 
 struct sourcelist {
