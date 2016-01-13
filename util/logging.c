@@ -77,7 +77,7 @@ static void replay(void) {
 
   while(defer) {
     level = get_level(defer->type);
-    if(defer->level<=level) {
+    if(defer->level>=level) {
       send(defer->type,defer->level,defer->msg);
     }
     free(defer->type);
