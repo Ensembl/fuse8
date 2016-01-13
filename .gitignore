@@ -3,3 +3,9 @@ jtl
 83.jpf
 config-live.jpf
 test
+*.o
+*.d
+jpf/jpflex.yy.c
+*.dat
+fuse8
+*.log
