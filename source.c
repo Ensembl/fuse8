@@ -85,8 +85,8 @@ void src_collect(struct source *src,int64_t length) {
 void src_global_stats(struct source *src,struct jpf_value *out) {
   jpfv_assoc_add(out,"hits_total",jpfv_number_int(src->hits));
   jpfv_assoc_add(out,"bytes_total",jpfv_number_int(src->bytes));
-  jpfv_assoc_add(out,"rtime_secs",jpfv_number(src->r_time/1000000));
-  jpfv_assoc_add(out,"wtime_secs",jpfv_number(src->w_time/1000000));
+  jpfv_assoc_add(out,"rtime_secs",jpfv_number(src->r_time/1000000.0));
+  jpfv_assoc_add(out,"wtime_secs",jpfv_number(src->w_time/1000000.0));
   jpfv_assoc_add(out,"errors_total",jpfv_number_int(src->errors));
 }
 
