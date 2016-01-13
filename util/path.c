@@ -1,4 +1,5 @@
 #include <string.h>
+#include <unistd.h>
 #include "path.h"
 #include "misc.h"
 
@@ -61,4 +62,8 @@ void to_dir_file(char *in,char **dir_out,char **file_out) {
   if(file_out) { *file_out = strdup(filename); }
   free(dir);
   free(full);
+}
+
+int path_exists(char *in) {
+ return !access(in,F_OK);
 }

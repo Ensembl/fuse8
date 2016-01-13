@@ -225,5 +225,4 @@ void run(char *conf_file) {
   event_free(sig2_ev);
   closedown(&rr);
   log_info(("Bye!"));
-  logging_done();
 }
