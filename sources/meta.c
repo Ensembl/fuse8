@@ -186,7 +186,6 @@ static void add_type(struct metabuild *mb,struct jpf_value *val,
 // XXX symlinks
 static void add_file(struct metabuild *mb,struct jpf_value *val) {
   struct fuse_stat *st;
-  struct jpf_value *v;
   char *inode,*path,*dir,*file,*dot;
 
   st = safe_malloc(sizeof(struct fuse_stat));

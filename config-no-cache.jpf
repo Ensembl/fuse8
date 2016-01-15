@@ -2,6 +2,7 @@ logging:
   levels:
     "": INFO
     http: DEBUG
+    #failures: DEBUG
     #request: DEBUG
   dest:
     fd: +2
@@ -11,17 +12,17 @@ stats:
   interval: +10
 
 sources:
-  smallcache:  type: cachemmap
-               filename: small.dat
-               block: +65536
-               entries: +16
-               set_size: +8
-
-  bigcache:  type: cachefile
-             filename: big.dat
-             block: +65536
-             entries: +16384
-             set_size: +8
+#  smallcache:  type: cachemmap
+#               filename: small.dat
+#               block: +65536
+#               entries: +16
+#               set_size: +8
+#
+#  bigcache:  type: cachefile
+#             filename: big.dat
+#             block: +65536
+#             entries: +16384
+#             set_size: +8
 
   metadata: type: meta
             filename: meta.jpf

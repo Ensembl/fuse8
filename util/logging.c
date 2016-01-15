@@ -90,7 +90,7 @@ static void replay(void) {
 
 void logging_fd(int fd) {
   if(!levels) { log_init(); }
-  log_info(("logging fd set to %d",fd));
+  log_debug(("logging fd set to %d",fd));
   if(log_fd == -1) {
     log_info(("logging fd established: replaying logs"));
     log_fd = fd;
