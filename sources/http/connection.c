@@ -44,6 +44,7 @@
 
 CONFIG_LOGGING(http);
 
+// XXX timeout inuse
 // XXX configurable
 #define MAX_CONN 3
 #define DNS_WAIT 30000000
@@ -88,6 +89,18 @@ struct conn_request {
   void *priv;
   struct conn_request *next;
 };
+
+#if 0
+/* Useful for extreme debugging */
+static void dump_ep(struct endpoint *ep) {
+  struct connection *conn;
+
+  log_debug(("dump"));
+  for(conn=ep->conn;conn;conn=conn->next) {
+    log_debug(("  -> %d",conn->state));
+  }
+}
+#endif
 
 static void free_connection(struct connection *conn) {
   if(conn->evcon) { evhttp_connection_free(conn->evcon); }
@@ -238,6 +251,7 @@ static void tidy_endpoint(struct endpoint *ep) {
     ep->conn = c->next;
     if(c->state == CONN_READY && c->last_used+TOO_OLD < now) {
       /* dispose */
+      log_debug(("tidying away connection"));
       free_connection(c);
       ep->n_conn--;
     } else {
