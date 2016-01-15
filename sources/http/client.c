@@ -44,6 +44,7 @@ static void error(struct http_request *rq,char *msg) {
   if(rq->uris) { free(rq->uris); rq->uris = 0; }
   if(rq->host) { free(rq->host); rq->host = 0; }
   if(rq->uri) { evhttp_uri_free(rq->uri); rq->uri = 0; }
+  if(rq->conn) { unget_connection(rq->conn); rq->conn = 0; }
   free(rq);
 }
 
@@ -121,7 +122,7 @@ static void done(struct evhttp_request *req,void *priv) {
   free(rq->host); rq->host = 0;
   rq->callback(rq->success,rq->out,rq->len-amt,eof,rq->priv,&(rq->stats));
   free(rq->out);
-  unget_connection(rq->conn);
+  unget_connection(rq->conn); rq->conn = 0;
   free(rq);
 }
 
