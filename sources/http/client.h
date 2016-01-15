@@ -1,6 +1,7 @@
 #ifndef HTTPCLIENT_H
 #define HTTPCLIENT_H
 
+#include <stdlib.h>
 #include <inttypes.h>
 
 struct httpclient;
