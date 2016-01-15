@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <string.h>
 
 #include "util/path.h"
 #include "util/logging.h"
@@ -49,19 +50,25 @@ int main(int argc,char **argv) {
     /* guess */
     self = self_path();
     for(dir=conf_dirs;*dir;dir++) {
-      if(**dir) { rdir = *dir; } else { path_separate(self,&rdir,0); }
+      if(**dir) {
+        rdir = strdup(*dir);
+      } else {
+        path_separate(self,&rdir,0);
+      }
       for(fn=conf_fns;*fn;fn++) {
         conf_file = make_string("%s/%s",rdir,*fn);
         log_debug(("Looking for '%s'",conf_file));
         if(path_exists(conf_file)) {
           run(conf_file);
+          free(rdir);
           free(self);
           free(conf_file);
-    logging_done();
+          logging_done();
           return 0;
         }
         free(conf_file);
       }
+      free(rdir);
     }
     free(self);
     log_error(("Could not find config file at usual places"));
