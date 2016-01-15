@@ -46,6 +46,7 @@ CONFIG_LOGGING(http);
 
 // XXX configurable
 #define MAX_CONN 3
+#define DNS_WAIT 30000000
 
 struct connections {
   struct ref r;
@@ -68,7 +69,7 @@ struct endpoint {
 };
 
 enum conn_state {
-  CONN_NEW, CONN_AWAITDNS, CONN_READY, CONN_INUSE
+  CONN_NEW, CONN_AWAITDNS, CONN_READY, CONN_INUSE, CONN_FAILEDDNS
 };
 
 struct connection {
@@ -158,6 +159,12 @@ static void resolved(const char *host,void *data) {
   struct connection *cn = (struct connection *)data;
 
   // XXX failed DNS
+  if(!host) {
+    log_warn(("DNS failed"));
+    cn->state = CONN_FAILEDDNS;
+    cn->last_used = microtime();
+    return;
+  }
   log_debug(("DNS answer"));
   cn->evcon = evhttp_connection_base_new(cn->ep->cnn->cli->eb,0,host,
                                          cn->ep->port);
@@ -180,7 +187,6 @@ static void try_resolve(struct endpoint *ep) {
 }
 
 static void try_new(struct endpoint *ep) {
-  struct conn_request *crq;
   struct connection *conn;
   int i;
 
@@ -236,10 +242,14 @@ static void tidy_endpoint(struct endpoint *ep) {
       ep->n_conn--;
     } else {
       /* keep */
+      if(c->state == CONN_FAILEDDNS && c->last_used+DNS_WAIT <now) {
+        c->state = CONN_NEW;
+      }
       c->next = new;
       new = c;
     }
   }
+  try_resolve(ep);
   ep->conn = new;
   try_new(ep);
   if(!ep->conn && !ep->rqq) {
