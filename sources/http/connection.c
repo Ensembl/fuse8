@@ -182,6 +182,7 @@ static void resolved(const char *host,void *data) {
   cn->evcon = evhttp_connection_base_new(cn->ep->cnn->cli->eb,0,host,
                                          cn->ep->port);
   cn->state = CONN_READY;
+  cn->last_used = microtime();
   cn->ep->cnn->n_new++;
   cn->ep->cnn->dns_time += microtime() - cn->dns_start;
   try_link(cn->ep);
@@ -209,6 +210,7 @@ static void try_new(struct endpoint *ep) {
     conn->state = CONN_NEW;
     conn->ep = ep;
     conn->evcon = 0;
+    conn->last_used = 0;
     conn->next = ep->conn;
     ep->conn = conn;
     ep->n_conn++;
