@@ -41,8 +41,8 @@ static void error(struct http_request *rq,char *msg) {
   log_warn(("http error: '%s'",msg));
   rq->callback(rq->success,rq->out,rq->len,0,rq->priv,&(rq->stats));
   free(rq->out);
-  if(rq->uris) { free(rq->uris); }
-  if(rq->host) { free(rq->host); }
+  if(rq->uris) { free(rq->uris); rq->uris = 0; }
+  if(rq->host) { free(rq->host); rq->host = 0; }
   if(rq->uri) { evhttp_uri_free(rq->uri); rq->uri = 0; }
   free(rq);
 }
@@ -117,6 +117,8 @@ static void done(struct evhttp_request *req,void *priv) {
     error(rq,"Short buffer");
     return;
   }
+  free(rq->uris); rq->uris = 0;
+  free(rq->host); rq->host = 0;
   rq->callback(rq->success,rq->out,rq->len-amt,eof,rq->priv,&(rq->stats));
   free(rq->out);
   unget_connection(rq->conn);
@@ -152,10 +154,6 @@ static void make_request(struct connection *conn,void *priv) {
     error(rq,"Request failed");
     return;
   }
-  free(rq->uris);
-  free(rq->host);
-  rq->uris = 0;
-  rq->host = 0;
 }
 
 struct httpclient * httpclient_create(struct event_base *eb,
