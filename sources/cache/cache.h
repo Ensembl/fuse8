@@ -22,6 +22,7 @@ struct cache {
 
   /* stats */
   int64_t lifespan,cur_lifespan,n_lifespan,hits,misses,hit_rate,locked_out;
+  int64_t lock_start,lock_time;
 };
 
 struct cache_ops {

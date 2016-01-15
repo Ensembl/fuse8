@@ -60,6 +60,8 @@ static void cache_stats(struct source *src,struct jpf_value *out) {
                  jpfv_number(((float)c->lifespan)/1000000));
   jpfv_assoc_add(out,"hitrate_perc",jpfv_number(c->hit_rate));
   jpfv_assoc_add(out,"locked_out_num",jpfv_number_int(c->locked_out));
+  jpfv_assoc_add(out,"lockheld_sec",
+                 jpfv_number(((float)c->lock_time)/1000000));
   if(c->ops->stats)
     c->ops->stats(c,out,c->priv);
 }
@@ -93,6 +95,7 @@ static struct cache * cache_open(struct event_base *eb,
   c->n_lifespan = 0;
   c->hits = c->misses = c->hit_rate = 0;
   c->locked_out = 0;
+  c->lock_time = 0;
   /* Timer */
   c->timer = event_new(eb,-1,EV_PERSIST,timer_tick,c);
   event_add(c->timer,&one_min);
@@ -128,6 +131,7 @@ static int cache_lock(struct cache *c,int slot) {
   int ok;
 
   if(c->ops->lock(c,slot,c->priv)) { c->locked_out++; return 0; }
+  c->lock_start = microtime();
   c->ops->get_header(&h,c,slot,c->priv);
   ok = memcmp(h->hash,c->ones,HASHSIZE);
   if(ok) {
@@ -144,6 +148,7 @@ static int cache_lock(struct cache *c,int slot) {
   }
   c->ops->header_done(c,h,slot,c->priv);
   if(!ok) {
+    c->lock_time += microtime() - c->lock_start;
     c->ops->unlock(c,slot,c->priv);
   }
   return ok; 
@@ -154,6 +159,7 @@ static int cache_check_lock(struct cache *c,int slot,struct hash *hh) {
   int found;
 
   if(c->ops->lock(c,slot,c->priv)) { c->locked_out++; return 0; }
+  c->lock_start = microtime();
   c->ops->get_header(&h,c,slot,c->priv);
   found = !hash_cmp(hh,h->hash,HASHSIZE);
   if(found) {
@@ -162,6 +168,7 @@ static int cache_check_lock(struct cache *c,int slot,struct hash *hh) {
   }
   c->ops->header_done(c,h,slot,c->priv);
   if(!found) {
+    c->lock_time += microtime() - c->lock_start;
     c->ops->unlock(c,slot,c->priv);
   }
   return found;
@@ -175,6 +182,7 @@ static void cache_unlock(struct cache *c,int slot,struct hash *hh) {
   c->ops->set_header(c,h,slot,c->priv);
   c->ops->header_done(c,h,slot,c->priv);
   c->ops->unlock(c,slot,c->priv);
+  c->lock_time += microtime() - c->lock_start;
 }
 
 // XXX all writes to async
