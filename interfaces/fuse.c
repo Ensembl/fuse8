@@ -5,6 +5,9 @@
 #include <errno.h>
 #include <pthread.h>
 #include <fuse/fuse_lowlevel.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/mount.h>
 
 #include "../util/misc.h"
 #include "../jpf/jpf.h"
@@ -273,6 +276,34 @@ static struct fuse_lowlevel_ops ll_oper = {
   .read     = fuse_read,
 };
 
+static int fuseumount(char *path) {
+  int pid,status;
+
+  // XXX make an option
+  // XXX move to utils
+  pid = fork();
+  if(pid==-1) { return -1; }
+  if(pid!=0) {
+    /* parent */
+    while(1) {
+      waitpid(pid,&status,0);
+      if(WIFEXITED(status) || WIFSIGNALED(status)) { break; }
+    }
+    if(WIFEXITED(status)) { return WEXITSTATUS(status); }
+    return -WTERMSIG(status);
+  } else {
+    /* child */
+    execlp("sudo","-n","umount",path,(char *)0);
+    exit(100);
+  }
+}
+
+static void force_unmount(char *path) {
+  /* Do our best to clear from any eralier failed servers */
+  umount(path);
+  fuseumount(path);
+}
+
 #define ARGC 2
 static void * fuse_main(void *data) {
   struct fuseif *fi = (struct fuseif *)data;
@@ -282,6 +313,7 @@ static void * fuse_main(void *data) {
 
   log_debug(("fuse main thread starting"));
   ic_acquire(fi->ic);
+  force_unmount(fi->path);
   if(fuse_parse_cmdline(&args,&(fi->mountpoint),0,0) != -1 &&
      (fi->ch = fuse_mount(fi->mountpoint,&args))) {
     fi->mounted = 1; /* No lock, still have start mutex */
