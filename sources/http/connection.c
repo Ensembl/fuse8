@@ -34,7 +34,7 @@ struct connection {
   char *host;
   int port;
   int64_t last_used;
-  int refs;
+  int refs,usable;
   conn_cb callback;
   void *priv;
   struct connection *next;
@@ -76,6 +76,7 @@ static void timer(evutil_socket_t fd,short what,void *arg) {
 
 void unget_connection(struct connection *conn) {
   conn->refs--;
+  conn->usable = 1;
 }
 
 static void conn_dns_done(const char *host,void *data) {
@@ -101,7 +102,7 @@ void get_connection(struct connections *cnn,
 
   now = microtime();
   for(cn=cnn->conns;cn;cn=cn->next) {
-    if(!strcmp(host,cn->host) && port == cn->port) {
+    if(!strcmp(host,cn->host) && port == cn->port && cn->usable) {
       cn->refs++;
       cn->last_used = now;
       log_debug(("Using existing connection"));
@@ -118,6 +119,7 @@ void get_connection(struct connections *cnn,
   cn->priv = priv;
   cn->cnn = cnn;
   cn->refs = 1;
+  cn->usable = 0;
   cn->next = 0;
   cn->last_used = now;
   cnn->n_new++;
@@ -159,3 +161,4 @@ void cnn_stats(struct connections *cnn,int64_t *n_new,int64_t *dns_time) {
   if(n_new) { *n_new = cnn->n_new; }
   if(dns_time) { *dns_time = cnn->dns_time; }
 }
+
