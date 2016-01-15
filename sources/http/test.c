@@ -46,6 +46,11 @@ int main() {
   event_add(exit_ev,0);
 
   http_request(cli,url,0,20,done,0);
+  http_request(cli,url,0,20,done,0);
+  http_request(cli,url,0,20,done,0);
+  http_request(cli,url,0,20,done,0);
+  http_request(cli,url,0,20,done,0);
+  http_request(cli,url,0,20,done,0);
   ev = evtimer_new(eb,req,cli);
   evtimer_add(ev,&three_sec);
   ev2 = evtimer_new(eb,req,cli);
