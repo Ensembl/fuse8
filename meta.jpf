@@ -36,3 +36,8 @@ files: - dir: /
        - link: /inner/d
          target: ../hello
 
+       - file: /inner/e
+         size: 1
+         uri: http://ftp.ensembl.org/pub/xxx
+
+

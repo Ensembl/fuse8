@@ -1,10 +1,11 @@
 logging:
   levels:
-    "": DEBUG
-    request: DEBUG
-    http: DEBUG
+    "": INFO
+    failures: DEBUG
+    #request: DEBUG
   dest:
     fd: +2
+
 stats:
   filename: stats.log
   interval: +10
@@ -27,6 +28,7 @@ sources:
             #filename: 83.jpf
 
   http: type: http
+        fail_timeout: 5
 
   file: type: file
         root: /home/dan

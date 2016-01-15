@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "sourcelist.h"
+#include "failures.h"
 
 CONFIG_LOGGING(source)
 
@@ -25,6 +26,7 @@ static void src_ref_release(void *data) {
   *(src->prev) = src->next;
   if(src->next) { src->next->prev = src->prev; }
   if(src->close) { src->close(src); }
+  if(src->fails) { failures_free(src->fails); }
 }
 
 void src_close_finished(struct source *src) {
@@ -38,6 +40,7 @@ struct source * src_create(void) {
   ref_create(&(src->r));
   ref_on_release(&(src->r),src_ref_release,src);
   ref_on_free(&(src->r),src_ref_free,src);
+  src->fails = 0;
   src->close = 0;
   src->read = 0;
   src->write = 0;
@@ -53,6 +56,11 @@ struct source * src_create(void) {
   src->r_time = src->w_time = 0;
   src->errors = 0;
   return src;
+}
+
+void src_set_fails(struct source *src,struct event_base *eb,
+                   int64_t timeout) {
+  src->fails = failures_new(eb,timeout);
 }
 
 void src_set_name(struct source *src,char *name) {
@@ -96,4 +104,14 @@ void src_global_stats(struct source *src,struct jpf_value *out) {
 void src_release(struct source *src) { ref_release(&(src->r)); }
 void src_acquire(struct source *src) { ref_acquire(&(src->r)); }
 struct ref * src_ref(struct source *src) { return &(src->r); }
+
+int src_path_ok(struct source *src,char *path) {
+  if(!src->fails) { return 1; }
+  return failures_check(src->fails,path);
+}
+
+int src_set_failed(struct source *src,char *path) {
+  if(!src->fails) { return; }
+  failures_fail(src->fails,path);
+}
 

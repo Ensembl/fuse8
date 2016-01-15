@@ -167,6 +167,7 @@ void rq_run_next(struct request *rq) {
   char *c;
  
   if(rq->failed_errno) {
+    src_set_failed(rq->src,rq->spec);
     if(rq->src) { src_collect_error(rq->src); }
     log_debug(("sending error errno=%d",rq->failed_errno));
     rq->done(rq->failed_errno,rq->out,rq->priv);
@@ -199,7 +200,7 @@ void rq_run_next(struct request *rq) {
   }
   if(rq->src) {
     /* More to do */
-    if(rq->src->read) {
+    if(rq->src->read && src_path_ok(rq->src,rq->spec)) {
       log_debug(("running read2 on next source"));
       rq->p_start = microtime();
       rq->src->read(rq->src,rq);
@@ -288,3 +289,4 @@ void rq_error(struct request *rq,int failed_errno) {
   rq->failed_errno = failed_errno;
   rq_run_next(rq);
 }
+

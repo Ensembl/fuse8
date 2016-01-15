@@ -44,6 +44,7 @@ struct source {
   struct ref r;
   struct source *next,**prev;
   struct sourcelist *sl;
+  struct failures *fails;
 
   char *name;
   void *priv;

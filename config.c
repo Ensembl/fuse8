@@ -98,9 +98,10 @@ static void configure_stats(struct running *rr,struct jpf_value *raw) {
 // XXX don't rely on jpf ordering
 static void configure_source(struct running *rr,char *name,
                              struct jpf_value *conf) {
-  struct jpf_value *type;
+  struct jpf_value *type,*v;
   struct source *src;
   src_create_fn creator;
+  int timeout;
 
   type = jpfv_lookup(conf,"type");
   if(!type) {
@@ -115,6 +116,11 @@ static void configure_source(struct running *rr,char *name,
   log_debug(("Creating source of type '%s'",name));
   src = creator(rr,conf);
   src_set_name(src,name);
+  v = jpfv_lookup(conf,"fail_timeout");
+  if(v) {
+    if(jpfv_int(v,&timeout)) { die("Bad timeout"); }
+    src_set_fails(src,rr->eb,timeout);
+  }
   array_insert(rr->src,src);
   sl_add_src(rr->sl,src);
   src_release(src); 

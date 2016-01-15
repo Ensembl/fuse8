@@ -5,6 +5,8 @@
 #include "types.h"
 #include "sourcelist.h"
 
+#include <event2/event.h>
+
 /* Sources which are not inherently asynchronous should implement
  * a thread pool and queue using syncsource.
  */
@@ -26,5 +28,11 @@ void src_collect_wtime(struct source *src,int64_t wtime);
 void src_collect_error(struct source *src);
 
 void src_global_stats(struct source *src,struct jpf_value *out);
+
+void src_set_fails(struct source *src,struct event_base *eb,
+                   int64_t timeout);
+
+int src_path_ok(struct source *src,char *path);
+int src_set_failed(struct source *src,char *path);
 
 #endif
