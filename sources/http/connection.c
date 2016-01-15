@@ -300,6 +300,7 @@ struct connections * cnn_make(struct httpclient *cli) {
 
   cnn = safe_malloc(sizeof(struct connections));
   cnn->epp = 0;
+  cnn->dns_time = 0;
   cnn->n_new = 0;
   cnn->cli = cli;
   ref_create(&(cnn->r));
