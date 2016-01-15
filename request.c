@@ -176,15 +176,6 @@ void rq_run_next(struct request *rq) {
     rq_release(rq);
     return;
   }
-  if(!rq->src) {
-    rq_reset_sl(rq);
-  } else {
-    if(rq->p_start) {
-      src_collect_rtime(rq->src,microtime()-rq->p_start);
-      rq->p_start = 0;
-    }
-    rq_advance_sl(rq);
-  }
   if(log_do_debug) {
     c = ranges_print(&(rq->desired));
     log_debug(("desired: %s",c));
@@ -193,10 +184,23 @@ void rq_run_next(struct request *rq) {
   // XXX short circuit when fulfilled?
   if(ranges_empty(&(rq->desired))) {
     log_debug(("reads fulfilled errno=%d",rq->failed_errno));
+    if(rq->src) {
+      log_info(("satisfied by '%s'",rq->src->name));
+      sl_record_hit(rq->sl,rq->spec,rq->src->name,rq->length);
+    }
     rq->done(rq->failed_errno,rq->out,rq->priv);
     account_chunks(rq);
     rq_run_writes(rq);
     return;
+  }
+  if(!rq->src) {
+    rq_reset_sl(rq);
+  } else {
+    if(rq->p_start) {
+      src_collect_rtime(rq->src,microtime()-rq->p_start);
+      rq->p_start = 0;
+    }
+    rq_advance_sl(rq);
   }
   if(rq->src) {
     /* More to do */

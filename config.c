@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "hits.h"
 #include "interface.h"
 #include "source.h"
 #include "running.h"
@@ -95,6 +96,21 @@ static void configure_stats(struct running *rr,struct jpf_value *raw) {
   log_debug(("stat timer interval is %lds",rr->stat_timer_interval.tv_sec));
 }
 
+static void configure_hits(struct running *rr,struct jpf_value *raw) {
+  int fd,val;
+
+  if(!raw) { return; }
+  log_debug(("configuring hits log"));
+  fd = extract_fd(raw,O_WRONLY|O_APPEND|O_CREAT);
+  switch(jpfv_int(jpfv_lookup(raw,"interval"),&val)) {
+  case -2: val = 60; break;
+  case -1: die("Bad interval"); break;
+  default: break;
+  }
+  log_debug(("hits log fd=%d interval=%ds",fd,val));
+  sl_set_hits(rr->sl,hits_new(rr->eb,fd,val));
+}
+
 // XXX don't rely on jpf ordering
 static void configure_source(struct running *rr,char *name,
                              struct jpf_value *conf) {
@@ -180,6 +196,7 @@ int load_config(struct running *rr,char *path) {
   }
   configure_logging(jpfv_lookup(raw,"logging"));
   configure_stats(rr,jpfv_lookup(raw,"stats"));
+  configure_hits(rr,jpfv_lookup(raw,"hits"));
   configure_sources(rr,jpfv_lookup(raw,"sources"));
   configure_interfaces(rr,jpfv_lookup(raw,"interfaces"));
   jpfv_free(raw);

@@ -64,8 +64,9 @@ struct source {
 struct sourcelist {
   struct ref r;
   struct source *root;
-  
-  uint64_t bytes,hits,time;
+ 
+  struct hits *hits; 
+  uint64_t bytes,n_hits,time;
 };
 
 struct interface;

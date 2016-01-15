@@ -1,13 +1,17 @@
 logging:
   levels:
     "": INFO
-    http: DEBUG
+    #http: DEBUG
     #request: DEBUG
   dest:
     fd: +2
 
 stats:
   filename: stats.log
+  interval: +10
+
+hits:
+  filename: requests.log
   interval: +10
 
 sources:

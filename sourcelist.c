@@ -6,6 +6,7 @@
 #include "types.h"
 #include "source.h"
 #include "request.h"
+#include "hits.h"
 
 CONFIG_LOGGING(sourcelist)
 
@@ -24,6 +25,7 @@ static void sl_ref_free(void *data) {
   struct sourcelist *sl = (struct sourcelist *)data;
 
   log_debug(("sourcelist free"));
+  if(sl->hits) { hits_free(sl->hits); }
   free(sl);
 }
 
@@ -32,7 +34,8 @@ struct sourcelist * sl_create(void) {
 
   sl = safe_malloc(sizeof(struct sourcelist));
   sl->root = 0;
-  sl->bytes = sl->hits = sl->time = 0;
+  sl->hits = 0;
+  sl->bytes = sl->n_hits = sl->time = 0;
   ref_create(&(sl->r));
   ref_on_release(&(sl->r),sl_ref_release,sl);
   ref_on_free(&(sl->r),sl_ref_free,sl);
@@ -69,7 +72,7 @@ void sl_add_src(struct sourcelist *sl,struct source *src) {
 void sl_stat_time(struct sourcelist *sl,int64_t rtime) {
   sl->time += rtime;
   log_debug(("requests num=%"PRId64" bytes=%"PRId64" time=%"PRId64"us",
-            sl->hits,sl->bytes,sl->time));
+            sl->n_hits,sl->bytes,sl->time));
 }
 
 void sl_read(struct sourcelist *sl,char *spec,int64_t offset,
@@ -77,7 +80,7 @@ void sl_read(struct sourcelist *sl,char *spec,int64_t offset,
   struct request *rq;
 
   rq = rq_create(sl,spec,offset,length,done,priv);
-  sl->hits++;
+  sl->n_hits++;
   sl->bytes += length;
   rq_run(rq);
   rq_release(rq);
@@ -118,4 +121,14 @@ int sl_readlink(struct sourcelist *sl,int inode,char **out) {
     if(src->readlink && !src->readlink(src,inode,out)) { return 0; }
   }
   return 1;
+}
+
+void sl_set_hits(struct sourcelist *sl,struct hits *hits) {
+  sl->hits = hits;
+}
+
+void sl_record_hit(struct sourcelist *sl,char *uri,char *source,
+                   int64_t bytes) {
+  if(!sl->hits) { return; }
+  hit_add(sl->hits,uri,source,bytes);
 }
