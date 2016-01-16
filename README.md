@@ -2,7 +2,7 @@
 
 ## Whay have you been added?
 
-This was just a vgue list of people I thought might longer term be interested in access longer term. Feel free to unsubscribe. It's the web team's project to present large data files as a filesystem served via http/ftp with an extensive local block cache. Longer term it may serve a broader purpose as a cache, for example, between the web code and the API, as it's designed to support multiple interfaces (not just FUSE) and sources (multiple levels of cache, different origins, etc) via plugins, and to have very extensive logging and stats.
+This was just a vague list of people I thought might longer term be interested in access longer term. Feel free to unsubscribe. It's the web team's project to present large data files as a filesystem served via http/ftp with an extensive local block cache. Longer term it may serve a broader purpose as a cache, for example, between the web code and the API, as it's designed to support multiple interfaces (not just FUSE) and sources (multiple levels of cache, different origins, etc) via plugins, and to have very extensive logging and stats.
 
 It's undergoing live trials at the moment. It needs way more doucmentation, :-) .
 
