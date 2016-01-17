@@ -293,6 +293,10 @@ static int fuseumount(char *path) {
     return -WTERMSIG(status);
   } else {
     /* child */
+    close(0);
+    close(1);
+    close(2);
+    setsid();
     execlp("sudo","-n","umount",path,(char *)0);
     exit(100);
   }
