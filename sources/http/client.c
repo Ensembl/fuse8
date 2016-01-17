@@ -168,14 +168,27 @@ struct httpclient * httpclient_create(struct event_base *eb,
   return cli;
 }
 
-void httpclient_finish(struct httpclient *cli) {
-  cnn_free(cli->cnn);
+static void cnn_finished(void *priv) {
+  struct httpclient *cli = (struct httpclient *)priv;
+  http_finished f_cb;
+  void *f_priv;
+
+  f_cb = cli->f_cb;
+  f_priv = cli->f_priv;
+  log_debug(("connections finished: closing"));
   free(cli);
+  f_cb(f_priv);
+}
+
+void httpclient_finish(struct httpclient *cli,http_finished cb,void *priv) {
+  log_debug(("finish called: waiting for connections"));
+  cli->f_cb = cb;
+  cli->f_priv = priv;
+  cnn_free(cli->cnn,cnn_finished,cli);
 }
 
 // XXX tidy up
-void http_request(struct httpclient *cli,
-                  char *uris,size_t off,size_t size,
+void http_request(struct httpclient *cli,char *uris,size_t off,size_t size,
                   http_fn callback,void *priv) {
   struct http_request *rq;
   const char *host;

@@ -52,11 +52,6 @@ static struct http * http_open(struct event_base *base,
   return out;
 }
 
-static void http_close(struct http *c) {
-  httpclient_finish(c->cli);
-  free(c);
-}
-
 static void read_done(int success,char *data,int64_t len,int eof,
                       void *priv,struct http_stats *stats) {
   struct httpreq *hr = (struct httpreq *)priv;
@@ -143,9 +138,19 @@ static void http_read(struct source *ds,struct request *rq) {
   } 
 }
 
+static void http_close_done(void *priv) {
+  struct source *ds = (struct source *)priv;
+
+  log_debug(("close done"));
+  src_release(ds);
+}
+
 static void http_src_close(struct source *ds) {
-  http_close((struct http *)ds->priv);
-  src_close_finished(ds);
+  struct http *c = (struct http *)(ds->priv);
+
+  src_acquire(ds);
+  httpclient_finish(c->cli,http_close_done,ds);
+  free(c);
 }
 
 static void cache_stats(struct source *src,struct jpf_value *out) {

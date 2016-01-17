@@ -285,7 +285,6 @@ static void ds_read(struct source *ds,struct request *rq) {
 
 static void ds_close(struct source *ds) {
   cache_close((struct cache *)ds->priv);
-  src_close_finished(ds);
 }
 
 struct source * source_cache_make(struct running *rr,

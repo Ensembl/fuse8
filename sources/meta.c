@@ -41,7 +41,6 @@ static void sm_close(struct source *src) {
   assoc_release(meta->readdir);
   assoc_release(meta->lookup);
   free(meta);
-  src_close_finished(src);
 }
 
 static void init_stat(struct fuse_stat *st) {

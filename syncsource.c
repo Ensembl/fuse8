@@ -98,7 +98,6 @@ static int result(struct syncqueue *q,struct member *job) {
     break;
   case A_CLOSE:
     src = job->src->src;
-    src_close_finished(src);
     src_release(job->src->src);
     free(job->src);
     job->src = 0;

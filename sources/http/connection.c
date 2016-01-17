@@ -54,6 +54,11 @@ struct connections {
   struct httpclient *cli;
   struct event * timer;
   struct endpoint *epp;
+  int closing;
+
+  /* for freeing */
+  cnn_free_cb free_cb;
+  void *free_priv;
 
   /* stats */
   int64_t n_new,dns_time;
@@ -117,7 +122,7 @@ static void free_endpoint(struct endpoint *ep) {
       break;
     }
   }
-  ref_release_weak(&(ep->cnn->r));
+  ref_release(&(ep->cnn->r));
   free(ep->host);
   free(ep);
 }
@@ -141,7 +146,7 @@ static struct endpoint * get_endpoint(struct connections *cnn,
   ep->cnn = cnn;
   ep->conn = 0;
   cnn->epp = ep;
-  ref_acquire_weak(&(cnn->r));
+  ref_acquire(&(cnn->r));
   return ep;
 }
 
@@ -241,7 +246,9 @@ struct evhttp_connection * evconnection(struct connection *conn) {
   return conn->evcon;
 }
 
-#define TOO_OLD 5000000
+// XXX dispose of ancient connections in any state
+#define TOO_OLD      5000000
+#define TOO_ANCIENT 60000000
 static void tidy_endpoint(struct endpoint *ep) {
   struct connection *c,*new;
   uint64_t now;
@@ -256,6 +263,10 @@ static void tidy_endpoint(struct endpoint *ep) {
       log_debug(("tidying away connection"));
       free_connection(c);
       ep->n_conn--;
+    } else if(c->last_used+TOO_ANCIENT < now || ep->cnn->closing) {
+      log_debug(("freeing ancient connection"));
+      free_connection(c);
+      ep->n_conn--;
     } else {
       /* keep */
       if(c->state == CONN_FAILEDDNS && c->last_used+DNS_WAIT <now) {
@@ -265,9 +276,9 @@ static void tidy_endpoint(struct endpoint *ep) {
       new = c;
     }
   }
-  try_resolve(ep);
+  if(!ep->cnn->closing) { try_resolve(ep); }
   ep->conn = new;
-  try_new(ep);
+  if(!ep->cnn->closing) { try_new(ep); }
   if(!ep->conn && !ep->rqq) {
     free_endpoint(ep);
   }
@@ -286,12 +297,15 @@ static void tidy(evutil_socket_t fd,short what,void *arg) {
 static void cnn_on_release(void *priv) {
   struct connections *cnn = (struct connections *)priv;
 
+  log_debug(("connections released"));
   event_del(cnn->timer);
+  cnn->free_cb(cnn->free_priv);
 }
 
 static void cnn_on_free(void *priv) {
   struct connections *cnn = (struct connections *)priv;
 
+  log_debug(("connections freed"));
   event_free(cnn->timer);
   free(cnn);  
 }
@@ -304,6 +318,7 @@ struct connections * cnn_make(struct httpclient *cli) {
   cnn->epp = 0;
   cnn->dns_time = 0;
   cnn->n_new = 0;
+  cnn->closing = 0;
   cnn->cli = cli;
   ref_create(&(cnn->r));
   ref_on_release(&(cnn->r),cnn_on_release,cnn);
@@ -313,8 +328,12 @@ struct connections * cnn_make(struct httpclient *cli) {
   return cnn;
 }
 
-void cnn_free(struct connections *cnn) {
+void cnn_free(struct connections *cnn,cnn_free_cb cb,void *priv) {
+  cnn->free_cb = cb;
+  cnn->free_priv = priv;
+  cnn->closing = 1;
   ref_release(&(cnn->r));
+  tidy(0,0,cnn);
 }
 
 void cnn_stats(struct connections *cnn,int64_t *n_new,int64_t *dns_time) {

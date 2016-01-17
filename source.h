@@ -17,9 +17,6 @@ void src_acquire(struct source *src);
 struct ref * src_ref(struct source *src);
 void src_set_name(struct source *src,char *name);
 
-/* Only for sources */
-void src_close_finished(struct source *src);
-
 /* Internal use */
 struct source * src_get_next(struct source *src);
 void src_collect(struct source *src,int64_t len);

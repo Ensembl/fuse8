@@ -15,6 +15,7 @@ static void src_ref_free(void *data) {
   struct source * src = (struct source *)data;
 
   log_debug(("source free"));
+  sl_release_weak(src->sl);
   free(src->name);
   free(src);
 }
@@ -27,10 +28,6 @@ static void src_ref_release(void *data) {
   if(src->next) { src->next->prev = src->prev; }
   if(src->close) { src->close(src); }
   if(src->fails) { failures_free(src->fails); }
-}
-
-void src_close_finished(struct source *src) {
-  sl_release_weak(src->sl);
 }
 
 struct source * src_create(void) {

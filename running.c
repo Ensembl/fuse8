@@ -142,6 +142,7 @@ void setup_running(struct running *rr) {
   /* Need to process syncqueue closing events before exiting mainloop */
   ref_on_free(&(rr->need_loop),do_exit,rr->eb);
   ref_until_free(&(rr->need_loop),sq_ref(rr->sq));
+  ref_until_free(&(rr->need_loop),sl_ref(rr->sl));
   /* keep a ref to need_loop for all interfaces: released in ic_running */
   ref_on_release(&(rr->ic_running),interfaces_quit,rr);
 }
