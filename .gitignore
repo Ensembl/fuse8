@@ -9,3 +9,4 @@ jpf/jpflex.yy.c
 *.dat
 fuse8
 *.log
+*.pid
