@@ -36,7 +36,8 @@ struct cache_file {
   FILE *spoolf,*spoolinf;
 
   /* stats */
-  int64_t n_gdequeue,n_bdequeue;
+  int64_t n_gdequeue,n_bdequeue,dequeue_active,dequeue_elapsed;
+  int64_t dequeue_start;
 };
 
 // XXX properly marshalled header
@@ -116,6 +117,7 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   cf->lock = strbuf_str(&lockp);
   log_debug(("Lock is '%s'",cf->lock));
   cf->n_gdequeue = cf->n_bdequeue = 0;
+  cf->dequeue_active = cf->dequeue_elapsed = 0;
 }
 
 static void cf_close(struct cache *c,void *priv) {
@@ -154,6 +156,7 @@ int dequeue_prepare(struct cache *c,void *priv) {
     log_debug(("preparing do dequeue"));
     cf->n_gdequeue++;
     cf->n_bdequeue--;
+    cf->dequeue_start = microtime();
     return 1;
   } else {
     unlink(cf->spoolfile);
@@ -167,7 +170,7 @@ int dequeue_go(struct cache *c,void *priv) {
   int64_t start;
   int more = 1;
   char *hstr,*data;
-  int64_t blen;
+  int64_t blen,finish;
 
   start = microtime();
   data = safe_malloc(c->block_size);
@@ -191,14 +194,17 @@ int dequeue_go(struct cache *c,void *priv) {
     cache_queue_write(c,h,data,priv);
     free_hash(h);
   }
+  finish = microtime();
   if(!more) {
     log_debug(("finished dequeueing"));
     fclose(cf->spoolinf);
     cf->spoolinf = 0;
     unlink(cf->spoolinfile);
     unlock_path(cf->lock);
+    cf->dequeue_elapsed = finish - cf->dequeue_start;
   }
   free(data);
+  cf->dequeue_active += finish-start;
   return more;
 }
 
@@ -242,6 +248,10 @@ static void stats(struct cache *c,struct jpf_value *out,void *priv) {
 
   jpfv_assoc_add(out,"dequeue_good",jpfv_number_int(cf->n_gdequeue));
   jpfv_assoc_add(out,"dequeue_bad",jpfv_number_int(cf->n_bdequeue));
+  jpfv_assoc_add(out,"dequeue_elapsed",
+    jpfv_number(((double)cf->dequeue_elapsed)/1000000.0));
+  jpfv_assoc_add(out,"dequeue_active",
+    jpfv_number(((double)cf->dequeue_active)/1000000.0));
 }
 
 static struct cache_ops ops = {
