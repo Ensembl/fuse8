@@ -90,38 +90,13 @@ static void read_done(char *data,void *priv) {
   free(data);
 }
 
-// XXX  locks
-static int lock(struct cache *c,int slot,void *p) {
-  struct cache_file *cf = (struct cache_file *)p;
-
-  return lock_path(cf->lock);  
-}
-
-static void unlock(struct cache *c,int slot,void *p) {
-  struct cache_file *cf = (struct cache_file *)p;
-
-  unlock_path(cf->lock);
-}
-
 static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
   struct jpf_value *path; 
   struct strbuf lockp,spoolinp;
-  int i;
+  int i,flags;
  
-  path = jpfv_lookup(conf,"filename");
-  if(!path) { die("No path to cachefile specified"); }
-  for(i=0;i<MUTEXREGIONS;i++) {
-    pthread_mutex_init(cf->mutexes+i,0);
-  }
-  cf->fd = open(path->v.string,O_CREAT|O_RDWR|O_TRUNC,0666);
-  if(cf->fd<0) { die("Cannot create/open cache file"); }
-  if(ftruncate(cf->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
-  strbuf_init(&lockp,0);
-  strbuf_add(&lockp,"%s",path->v.string);
-  strbuf_add(&lockp,"%s","-lock");
-  cf->lock = strbuf_str(&lockp);
-  log_debug(("Lock is '%s'",cf->lock));
+  flags = 0;
   cf->spoolf = 0;
   cf->spoolfile = 0;
   cf->spoolinfile = 0;
@@ -132,8 +107,22 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
     strbuf_add(&spoolinp,"%s",path->v.string);
     strbuf_add(&spoolinp,"%s","-in");
     cf->spoolinfile = strbuf_str(&spoolinp);
+    flags |= O_SYNC;
   }
   unlink(cf->spoolfile);
+  path = jpfv_lookup(conf,"filename");
+  if(!path) { die("No path to cachefile specified"); }
+  for(i=0;i<MUTEXREGIONS;i++) {
+    pthread_mutex_init(cf->mutexes+i,0);
+  }
+  cf->fd = open(path->v.string,O_CREAT|O_RDWR|O_TRUNC|flags,0666);
+  if(cf->fd<0) { die("Cannot create/open cache file"); }
+  if(ftruncate(cf->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
+  strbuf_init(&lockp,0);
+  strbuf_add(&lockp,"%s",path->v.string);
+  strbuf_add(&lockp,"%s","-lock");
+  cf->lock = strbuf_str(&lockp);
+  log_debug(("Lock is '%s'",cf->lock));
 }
 
 static void cf_close(struct cache *c,void *priv) {
@@ -152,12 +141,17 @@ int dequeue_prepare(struct cache *c,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
 
   if(cf->spoolf) {
+    if(lock_path(cf->lock)) {
+      log_debug(("dequeue lock contention, holding off"));
+      return 0;
+    }
     if(rename(cf->spoolfile,cf->spoolinfile)) {
       unlink(cf->spoolfile);
       return 0;
     }
     cf->spoolinf = fopen(cf->spoolinfile,"r");
     if(!cf->spoolinf) { return 0; }
+    log_debug(("preparing do dequeue"));
     return 1;
   } else {
     unlink(cf->spoolfile);
@@ -200,6 +194,7 @@ int dequeue_go(struct cache *c,void *priv) {
     fclose(cf->spoolinf);
     cf->spoolinf = 0;
     unlink(cf->spoolinfile);
+    unlock_path(cf->lock);
   }
   free(data);
   return more;
@@ -249,8 +244,6 @@ static struct cache_ops ops = {
   .read_data = read_data,
   .write_data = write_data,
   .read_done = read_done,
-  .lock = lock,
-  .unlock = unlock,
   .stats = 0,
   .queue_write = queue_write,
   .dequeue_prepare = dequeue_prepare,

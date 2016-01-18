@@ -22,15 +22,12 @@ struct cache {
   int64_t block_size,entries,set_size;
 
   /* stats */
-  int64_t lifespan,cur_lifespan,n_lifespan,hits,misses,hit_rate,locked_out;
-  int64_t lock_start,lock_time;
+  int64_t lifespan,cur_lifespan,n_lifespan,hits,misses,hit_rate;
 };
 
 struct cache_ops {
   void (*open)(struct cache *c,struct jpf_value *conf,void *priv);
   void (*close)(struct cache *c,void *priv);
-  int (*lock)(struct cache *c,int slot,void *priv);
-  void (*unlock)(struct cache *c,int slot,void *priv);
   void (*get_header)(struct header **h,struct cache *c,int slot,void *priv);
   void (*set_header)(struct cache *c,struct header *h,int slot,void *priv);
   void (*header_done)(struct cache *c,struct header *h,int slot,void *priv);

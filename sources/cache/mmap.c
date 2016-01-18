@@ -70,9 +70,6 @@ static void read_data(struct cache *c,int slot,char **data,void *p) {
 
 static void read_done(char *data,void *priv) {}
 
-static int lock(struct cache *c,int slot,void *priv) { return 0; }
-static void unlock(struct cache *c,int slot,void *priv) {}
-
 static void cm_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_mmap *cm = (struct cache_mmap *)priv;
   struct jpf_value *path; 
@@ -112,8 +109,6 @@ static struct cache_ops ops = {
   .read_data = read_data,
   .write_data = write_data,
   .read_done = read_done,
-  .lock = lock,
-  .unlock = unlock,
   .stats = 0,
   .queue_write = cache_queue_write,
   .dequeue_prepare = 0,
