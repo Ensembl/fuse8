@@ -80,12 +80,19 @@ static void do_exit(void *eb) {
   event_base_loopexit((struct event_base *)eb,0);
 }
 
+static void sigkill_self(evutil_socket_t fd,short what,void *arg) {
+  log_warn(("Did not quit nicely, sending SIGKILL to self"));
+  kill(getpid(),SIGKILL);
+}
+
 // XXX cond for regular exit
 // XXX -9 after delay
+#define SIGKILL_DELAY 90 /* sec */
 static void user_quit(evutil_socket_t fd,short what,void *arg) {
   struct running *rr = (struct running *)arg;
   int i;
   struct array *icc;
+  struct timeval sigkill_delay = { SIGKILL_DELAY, 0 };
 
   icc = rr->icc;
   array_acquire(icc);
@@ -95,6 +102,7 @@ static void user_quit(evutil_socket_t fd,short what,void *arg) {
   }
   array_release(icc);
   event_del(rr->stat_timer);
+  event_add(rr->sigkill_timer,&sigkill_delay);
 }
 
 static void interfaces_quit(void *arg) {
@@ -195,6 +203,8 @@ void closedown(struct running *rr) {
   si_release(rr->si);
   event_del(rr->stat_timer);
   event_free(rr->stat_timer);
+  event_del(rr->sigkill_timer);
+  event_free(rr->sigkill_timer);
   evdns_base_free(rr->edb,1);
   event_base_free(rr->eb);
 }
@@ -217,6 +227,7 @@ void run(char *conf_file) {
   sq_release(rr.sq);
   evsignal_add(sig1_ev=evsignal_new(rr.eb,SIGINT,user_quit,&rr),0);
   evsignal_add(sig2_ev=evsignal_new(rr.eb,SIGTERM,user_quit,&rr),0);
+  rr.sigkill_timer = event_new(rr.eb,-1,EV_PERSIST,sigkill_self,&rr);
   log_info(("Starting event loop"));
   event_base_loop(rr.eb,0);
   log_info(("Event loop finished"));

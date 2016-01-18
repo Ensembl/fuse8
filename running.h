@@ -35,7 +35,7 @@ struct running {
   struct array *src;
   struct ref need_loop;
   struct ref ic_running;
-  struct event *stat_timer;
+  struct event *stat_timer,*sigkill_timer;
   struct timeval stat_timer_interval;
 };
 
