@@ -114,7 +114,7 @@ static void cf_close(struct cache *c,void *priv) {
   free(cf);
 }
 
-#define ANCIENT_LOCK 30000000
+#define ANCIENT_LOCK 3600000000
 static int lock(struct cache *c,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
   char *contents;
