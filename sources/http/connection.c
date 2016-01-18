@@ -79,6 +79,7 @@ enum conn_state {
 };
 
 struct connection {
+  struct ref r;
   enum conn_state state;
   struct endpoint *ep;
   struct evhttp_connection *evcon;
@@ -107,11 +108,6 @@ static void dump_ep(struct endpoint *ep) {
   }
 }
 #endif
-
-static void free_connection(struct connection *conn) {
-  if(conn->evcon) { evhttp_connection_free(conn->evcon); }
-  free(conn);
-}
 
 static void free_endpoint(struct endpoint *ep) {
   struct endpoint **epp;
@@ -178,6 +174,7 @@ static void resolved(const char *host,void *data) {
   struct connection *cn = (struct connection *)data;
 
   // XXX failed DNS
+  ref_release(&(cn->r));
   if(!host) {
     log_warn(("DNS failed"));
     cn->state = CONN_FAILEDDNS;
@@ -203,8 +200,16 @@ static void try_resolve(struct endpoint *ep) {
     conn->state = CONN_AWAITDNS;
     conn->dns_start = microtime();
     log_debug(("DNS question"));
+    ref_acquire(&(conn->r));
     dns_resolve(ep->cnn->cli->edb,ep->host,resolved,conn);
   }
+}
+
+static void free_connection(void *priv) {
+  struct connection *conn = (struct connection *)priv;
+
+  if(conn->evcon) { evhttp_connection_free(conn->evcon); }
+  free(conn);
 }
 
 static void try_new(struct endpoint *ep) {
@@ -214,6 +219,8 @@ static void try_new(struct endpoint *ep) {
   for(i=0;ep->rqq && ep->n_conn<MAX_CONN;i++) {
     log_debug(("New connection"));
     conn = safe_malloc(sizeof(struct connection));
+    ref_create(&(conn->r));
+    ref_on_free(&(conn->r),free_connection,conn);
     conn->state = CONN_NEW;
     conn->ep = ep;
     conn->evcon = 0;
@@ -264,11 +271,11 @@ static void tidy_endpoint(struct endpoint *ep) {
     if(c->state == CONN_READY && c->last_used+TOO_OLD < now) {
       /* dispose */
       log_debug(("tidying away connection"));
-      free_connection(c);
+      ref_release(&(c->r));
       ep->n_conn--;
     } else if(c->last_used+TOO_ANCIENT < now || ep->cnn->closing) {
       log_debug(("freeing ancient connection"));
-      free_connection(c);
+      ref_release(&(c->r));
       ep->n_conn--;
     } else {
       /* keep */
