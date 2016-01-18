@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
@@ -26,9 +25,7 @@
 #define HEADERSIZE(c) ((c)->entries*sizeof(struct header))
 #define BODYSIZE(c)   ((c)->entries*(c)->block_size)
 #define FILESIZE(c) (HEADERSIZE(c)+BODYSIZE(c))
-#define MUTEXREGIONS 16
 #define OFFSET(c,slot) (HEADERSIZE(c)+(slot*(c)->block_size))
-#define MUTEX_FOR(x,c) ((x)*MUTEXREGIONS/(c)->entries)
 #define SLOT(cm,c,slot) ((cm)->data+OFFSET(c,slot))
 
 CONFIG_LOGGING(cachemmap);
@@ -36,7 +33,6 @@ CONFIG_LOGGING(cachemmap);
 struct cache_mmap {
   int fd;
   char *data;
-  pthread_mutex_t mutexes[MUTEXREGIONS];
 };
 
 // XXX properly marshalled header
@@ -44,16 +40,12 @@ struct cache_mmap {
 static void get_header(struct header **h,struct cache *c,int slot,void *p) {
   struct cache_mmap *cm = (struct cache_mmap *)p;
 
-  pthread_mutex_lock(cm->mutexes+MUTEX_FOR(slot,c));
   *h = ((struct header *)cm->data)+slot;
 }
 
 static void set_header(struct cache *c,struct header *h,int slot,void *p) {}
 
 static void header_done(struct cache *c,struct header *h,int slot,void *p) {
-  struct cache_mmap *cm = (struct cache_mmap *)p;
-
-  pthread_mutex_unlock(cm->mutexes+MUTEX_FOR(slot,c));
 }
 
 static void write_data(struct cache *c,int slot,char *data,void *p) {
@@ -73,13 +65,9 @@ static void read_done(char *data,void *priv) {}
 static void cm_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_mmap *cm = (struct cache_mmap *)priv;
   struct jpf_value *path; 
-  int i;
  
   path = jpfv_lookup(conf,"filename");
   if(!path) { die("No path to cachefile specified"); }
-  for(i=0;i<MUTEXREGIONS;i++) {
-    pthread_mutex_init(cm->mutexes+i,0);
-  }
   cm->fd = open(path->v.string,O_CREAT|O_RDWR|O_TRUNC,0666);
   if(cm->fd<0) { die("Cannot create/open cache file"); }
   if(ftruncate(cm->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
@@ -91,11 +79,7 @@ static void cm_open(struct cache *c,struct jpf_value *conf,void *priv) {
 
 static void cm_close(struct cache *c,void *priv) {
   struct cache_mmap *cm = (struct cache_mmap *)priv;
-  int i;
 
-  for(i=0;i<MUTEXREGIONS;i++) {
-    pthread_mutex_destroy(cm->mutexes+i);
-  }
   if(close(cm->fd)<0) { die("Cannot close cache file"); }
   free(cm);
 }

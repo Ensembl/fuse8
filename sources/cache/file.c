@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -27,9 +26,7 @@
 #define HEADERSIZE(c) ((c)->entries*sizeof(struct header))
 #define BODYSIZE(c)   ((c)->entries*(c)->block_size)
 #define FILESIZE(c) (HEADERSIZE(c)+BODYSIZE(c))
-#define MUTEXREGIONS 16
 #define OFFSET(c,slot) (HEADERSIZE(c)+(slot*(c)->block_size))
-#define MUTEX_FOR(x,c) ((x)*MUTEXREGIONS/c->entries)
 
 CONFIG_LOGGING(cachefile);
 
@@ -37,7 +34,6 @@ struct cache_file {
   char *lock,*spoolfile,*spoolinfile;
   int fd;
   FILE *spoolf,*spoolinf;
-  pthread_mutex_t mutexes[MUTEXREGIONS];
 };
 
 // XXX properly marshalled header
@@ -46,7 +42,6 @@ static void get_header(struct header **h,struct cache *c,int slot,void *p) {
   struct cache_file *cf = (struct cache_file *)p;
 
   // XXX handle errors
-  pthread_mutex_lock(cf->mutexes+MUTEX_FOR(slot,c));
   *h = malloc(sizeof(struct header));
   lseek(cf->fd,slot*sizeof(struct header),SEEK_SET);
   read_all(cf->fd,*(char **)h,sizeof(struct header));
@@ -61,10 +56,7 @@ static void set_header(struct cache *c,struct header *h,int slot,void *p) {
 }
 
 static void header_done(struct cache *c,struct header *h,int slot,void *p) {
-  struct cache_file *cf = (struct cache_file *)p;
-
   free(h);
-  pthread_mutex_unlock(cf->mutexes+MUTEX_FOR(slot,c));
 }
 
 // XXX timeout for lock
@@ -94,7 +86,7 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
   struct jpf_value *path; 
   struct strbuf lockp,spoolinp;
-  int i,flags;
+  int flags;
  
   flags = 0;
   cf->spoolf = 0;
@@ -112,9 +104,6 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   unlink(cf->spoolfile);
   path = jpfv_lookup(conf,"filename");
   if(!path) { die("No path to cachefile specified"); }
-  for(i=0;i<MUTEXREGIONS;i++) {
-    pthread_mutex_init(cf->mutexes+i,0);
-  }
   cf->fd = open(path->v.string,O_CREAT|O_RDWR|O_TRUNC|flags,0666);
   if(cf->fd<0) { die("Cannot create/open cache file"); }
   if(ftruncate(cf->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
@@ -127,11 +116,7 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
 
 static void cf_close(struct cache *c,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
-  int i;
 
-  for(i=0;i<MUTEXREGIONS;i++) {
-    pthread_mutex_destroy(cf->mutexes+i);
-  }
   if(close(cf->fd)<0) { die("Cannot close cache file"); }
   free(cf->lock);
   free(cf);
