@@ -123,6 +123,8 @@ static void cf_close(struct cache *c,void *priv) {
 
   if(close(cf->fd)<0) { die("Cannot close cache file"); }
   free(cf->lock);
+  free(cf->spoolfile);
+  free(cf->spoolinfile);
   free(cf);
 }
 
