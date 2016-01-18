@@ -313,8 +313,8 @@ static void tidy(evutil_socket_t fd,short what,void *arg) {
 
   for(ep=cnn->epp;ep;ep=ep2) {
     ep2 = ep->next;
-    tidy_endpoint(ep);
     expire_ancient(ep);
+    tidy_endpoint(ep);
   }
 }
 
@@ -357,8 +357,8 @@ void cnn_free(struct connections *cnn,cnn_free_cb cb,void *priv) {
   cnn->free_cb = cb;
   cnn->free_priv = priv;
   cnn->closing = 1;
-  ref_release(&(cnn->r));
   tidy(0,0,cnn);
+  ref_release(&(cnn->r));
 }
 
 void cnn_stats(struct connections *cnn,int64_t *n_new,int64_t *dns_time) {
