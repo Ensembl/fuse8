@@ -305,7 +305,18 @@ int read_file(char *filename,char **out) {
     if(!r) { break; }
   }
   *out = strbuf_str(&buf);
+  close(fd);
   return 0; 
+}
+
+int write_file(char *filename,char *out) {
+  int fd;
+
+  fd = open(filename,O_WRONLY|O_CREAT|O_TRUNC,0666);
+  if(fd<0) { return -1; }
+  if(write_all(fd,out,strlen(out))) { close(fd); return -1; }
+  close(fd); 
+  return 0;
 }
 
 #define MAX_SYMLINK (100*1024*1024)

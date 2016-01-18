@@ -42,6 +42,7 @@ char * iso_localtime(time_t t);
 int write_all(int fd,char *buf,size_t count);
 int read_all(int fd,char *buf,size_t count);
 int read_file(char *filename,char **out);
+int write_file(char *filename,char *out);
 
 struct safe_passwd {
   struct passwd *p;
