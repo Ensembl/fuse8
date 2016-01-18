@@ -186,9 +186,11 @@ static int cache_lock_any(struct cache *c,int slot,struct hash **hh) {
   c->ops->get_header(&h,c,slot,c->priv);
   if(!memcmp(h->hash,c->zeros,HASHSIZE) ||
      !memcmp(h->hash,c->ones,HASHSIZE)) {
+    c->ops->header_done(c,h,slot,c->priv);
     return 0;
   }
   *hh = hash_bin(h->hash,HASHSIZE);
+  c->ops->header_done(c,h,slot,c->priv);
   return 1;
 }
 
