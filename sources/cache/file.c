@@ -34,6 +34,9 @@ struct cache_file {
   char *lock,*spoolfile,*spoolinfile;
   int fd;
   FILE *spoolf,*spoolinf;
+
+  /* stats */
+  int64_t n_gdequeue,n_bdequeue;
 };
 
 // XXX properly marshalled header
@@ -112,6 +115,7 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   strbuf_add(&lockp,"%s","-lock");
   cf->lock = strbuf_str(&lockp);
   log_debug(("Lock is '%s'",cf->lock));
+  cf->n_gdequeue = cf->n_bdequeue = 0;
 }
 
 static void cf_close(struct cache *c,void *priv) {
@@ -128,6 +132,7 @@ int dequeue_prepare(struct cache *c,void *priv) {
   if(cf->spoolf) {
     fclose(cf->spoolf);
     cf->spoolf = 0;
+    cf->n_bdequeue++;
     if(lock_path(cf->lock)) {
       log_debug(("dequeue lock contention, holding off"));
       return 0;
@@ -145,6 +150,8 @@ int dequeue_prepare(struct cache *c,void *priv) {
       return 0;
     }
     log_debug(("preparing do dequeue"));
+    cf->n_gdequeue++;
+    cf->n_bdequeue--;
     return 1;
   } else {
     unlink(cf->spoolfile);
@@ -228,6 +235,13 @@ void queue_write(struct cache *c,struct hash *h,char *data,void *priv) {
   }
 }
 
+static void stats(struct cache *c,struct jpf_value *out,void *priv) {
+  struct cache_file *cf = (struct cache_file *)priv;
+
+  jpfv_assoc_add(out,"dequeue_good",jpfv_number_int(cf->n_gdequeue));
+  jpfv_assoc_add(out,"dequeue_bad",jpfv_number_int(cf->n_bdequeue));
+}
+
 static struct cache_ops ops = {
   .open = cf_open,
   .close = cf_close,
@@ -237,7 +251,7 @@ static struct cache_ops ops = {
   .read_data = read_data,
   .write_data = write_data,
   .read_done = read_done,
-  .stats = 0,
+  .stats = stats,
   .queue_write = queue_write,
   .dequeue_prepare = dequeue_prepare,
   .dequeue_go = dequeue_go,
