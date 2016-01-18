@@ -90,6 +90,7 @@ struct connection {
 };
 
 struct conn_request {
+  uint64_t start;
   conn_cb callback;
   void *priv;
   struct conn_request *next;
@@ -186,6 +187,7 @@ static void resolved(const char *host,void *data) {
   log_debug(("DNS answer"));
   cn->evcon = evhttp_connection_base_new(cn->ep->cnn->cli->eb,0,host,
                                          cn->ep->port);
+  // XXX failed connect
   cn->state = CONN_READY;
   cn->last_used = microtime();
   cn->ep->cnn->n_new++;
@@ -236,6 +238,7 @@ void get_connection(struct connections *cnn,
   crq->callback = callback;
   crq->priv = priv;
   crq->next = ep->rqq;
+  crq->start = microtime();
   ep->rqq = crq;
   ep->n_paused++;
   try_link(ep);
@@ -284,6 +287,26 @@ static void tidy_endpoint(struct endpoint *ep) {
   }
 }
 
+#define ANCIENT_REQ 15000000
+static void expire_ancient(struct endpoint *ep) {
+  struct conn_request **rqp,*rq;
+  int64_t now;
+
+  now = microtime();
+  rqp = &(ep->rqq);
+  while(*rqp) {
+    if((*rqp)->start+ANCIENT_REQ < now) { /* ancient */
+      log_debug(("freeing ancient request"));
+      rq = *rqp;
+      *rqp = (*rqp)->next;
+      rq->callback(0,rq->priv);
+      free(rq);
+    } else { /* modern */
+      rqp = &((*rqp)->next);
+    }
+  }
+}
+
 static void tidy(evutil_socket_t fd,short what,void *arg) {
   struct connections *cnn = (struct connections *)arg;
   struct endpoint *ep,*ep2;
@@ -291,6 +314,7 @@ static void tidy(evutil_socket_t fd,short what,void *arg) {
   for(ep=cnn->epp;ep;ep=ep2) {
     ep2 = ep->next;
     tidy_endpoint(ep);
+    expire_ancient(ep);
   }
 }
 
@@ -329,6 +353,7 @@ struct connections * cnn_make(struct httpclient *cli) {
 }
 
 void cnn_free(struct connections *cnn,cnn_free_cb cb,void *priv) {
+  log_debug(("trying to free all connections"));
   cnn->free_cb = cb;
   cnn->free_priv = priv;
   cnn->closing = 1;

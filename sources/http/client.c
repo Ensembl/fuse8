@@ -133,6 +133,10 @@ static void make_request(struct connection *conn,void *priv) {
   struct evhttp_request *req;
   int r;
 
+  if(!conn) {
+    error(rq,"Could not create connection");
+    return;
+  }
   rq->conn = conn;
   // XXX non-blocking DNS / cache
   req = evhttp_request_new(done,rq);
