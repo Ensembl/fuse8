@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <errno.h>
+#include <ctype.h>
 #include <openssl/evp.h>
 #include <sys/types.h>
 #include <pwd.h>
@@ -138,5 +139,25 @@ uint32_t data_hash(const char *key, uint32_t len) {
 
 uint32_t str_hash(const char *key) {
   return data_hash(key,strlen(key));
+}
+
+struct hash * hash_str(const char *hashs) {
+  struct hash *h;
+  char c;
+  int v,p,i;
+
+  h = safe_malloc(sizeof(struct hash));
+  for(i=0;i<EVP_MAX_MD_SIZE*2;i++) {
+    c = hashs[i];
+    if(!c) { break; }
+    if(!isxdigit(c)) { return 0; }
+    if(c>='0' && c<='9') { v = c-'0'; }
+    else if(c>='A' && c<='F') { v = c-'A'+10; }
+    else if(c>='a' && c<='f') { v = c-'a'+10; }
+    if(i&1) { h->val[i/2] = p*16+v; }
+    else { p = v; }
+  }
+  h->len = i/2;
+  return h;
 }
 

@@ -3,6 +3,7 @@
 
 #define HASHSIZE 64
 
+#include "../../util/hash.h"
 #include "../../jpf/jpf.h"
 #include "../../running.h"
 
@@ -14,7 +15,7 @@ struct header {
 struct cache {
   struct cache_ops *ops;
   void *priv;
-  struct event *timer;
+  struct event *timer,*dequeue_timer,*fast_timer;
   void *ones,*zeros;
 
   /* config */
@@ -37,7 +38,12 @@ struct cache_ops {
   void (*write_data)(struct cache *c,int slot,char *data,void *priv);
   void (*read_done)(char *data,void *priv);
   void (*stats)(struct cache *c,struct jpf_value *out,void *priv);
+  void (*queue_write)(struct cache *c,struct hash *h,char *data,void *priv);
+  int (*dequeue_prepare)(struct cache *c,void *priv);
+  int (*dequeue_go)(struct cache *c,void *priv);
 };
+
+void cache_queue_write(struct cache *c,struct hash *h,char *data,void *priv);
 
 struct source * source_cache_make(struct running *rr,
                                   struct jpf_value *conf,

@@ -66,11 +66,35 @@ static void cache_stats(struct source *src,struct jpf_value *out) {
     c->ops->stats(c,out,c->priv);
 }
 
+static void fast_tick(evutil_socket_t fd,short what,void *arg) {
+  struct cache *c = (struct cache *)arg;
+
+  log_debug(("fast timer"));
+  if(!c->ops->dequeue_go(c,c->priv)) {
+    event_del(c->fast_timer);
+  }
+}
+
+static void dequeue_tick(evutil_socket_t fd,short what,void *arg) {
+  struct cache *c = (struct cache *)arg;
+  struct timeval fast_time = { 0, 10000 }; // XXX conf
+
+  if(!c->ops->dequeue_prepare) { return; }
+  log_debug(("dequeue_tick"));
+  if(!c->ops->dequeue_prepare(c,c->priv)) {
+    log_debug(("dequeue declined"));
+    return;
+  }
+  log_debug(("dequeue accepted"));
+  event_add(c->fast_timer,&fast_time);
+}
+
 static struct cache * cache_open(struct event_base *eb,
                                  struct jpf_value *conf,
                                  struct cache_ops *ops,void *priv) {
   struct cache *c;
   struct timeval one_min = { 60, 0 }; // XXX conf
+  struct timeval dequeue_time = { 5, 0 }; // XXX conf
   struct jpf_value *path;
   int64_t block,entries,set;
   
@@ -89,6 +113,10 @@ static struct cache * cache_open(struct event_base *eb,
   c->zeros = safe_malloc(HASHSIZE);
   memset(c->ones,255,HASHSIZE);
   memset(c->zeros,0,HASHSIZE);
+  /* dequeue */
+  c->dequeue_timer = event_new(eb,-1,EV_PERSIST,dequeue_tick,c);
+  c->fast_timer = event_new(eb,-1,EV_PERSIST,fast_tick,c);
+  event_add(c->dequeue_timer,&dequeue_time);
   /* Stats */
   c->lifespan = 0;
   c->cur_lifespan = 0;
@@ -112,6 +140,10 @@ static void cache_close(struct cache *c) {
   free(c->zeros);
   event_del(c->timer);
   event_free(c->timer);
+  event_del(c->dequeue_timer);
+  event_free(c->dequeue_timer);
+  event_del(c->fast_timer);
+  event_free(c->fast_timer);
   free(c);
 }
 
@@ -185,19 +217,24 @@ static void cache_unlock(struct cache *c,int slot,struct hash *hh) {
   c->lock_time += microtime() - c->lock_start;
 }
 
-// XXX all writes to async
-static void write_block(struct cache *c,struct request *rq,
-                        char *data,int64_t block) {
-  struct hash *h;
+void cache_queue_write(struct cache *c,struct hash *h,char *data,void *priv) {
   uint64_t slot;
 
-  h = cache_hash(rq,block);
   slot = (hash_mod(h,c->entries) + (rand()%c->set_size)) %c->entries;
-  log_debug(("writing block at %"PRId64" (%"PRId64")",block,slot));
+  log_debug(("writing block at (%"PRId64")",slot));
   if(cache_lock(c,slot)) {
     c->ops->write_data(c,slot,data,c->priv);
     cache_unlock(c,slot,h);
   }
+}
+
+// XXX all writes to async
+static void write_block(struct cache *c,struct request *rq,
+                        char *data,int64_t block) {
+  struct hash *h;
+
+  h = cache_hash(rq,block);
+  c->ops->queue_write(c,h,data,c->priv);
   free_hash(h);
 }
 

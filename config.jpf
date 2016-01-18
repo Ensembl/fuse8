@@ -1,6 +1,6 @@
 logging:
   levels:
-    "": INFO
+    "": DEBUG
     #http: DEBUG
     #request: DEBUG
   dest:
@@ -23,6 +23,7 @@ sources:
 
   bigcache:  type: cachefile
              filename: big.dat
+             spoolfile: big.spool
              block: +65536
              entries: +16384
              set_size: +8

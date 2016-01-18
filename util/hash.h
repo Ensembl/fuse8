@@ -14,5 +14,6 @@ char * print_hex(unsigned char *val,unsigned int len);
 char * print_hash(struct hash *h);
 uint32_t data_hash(const char *key, uint32_t len);
 uint32_t str_hash(const char *key);
+struct hash * hash_str(const char *hashs);
 
 #endif

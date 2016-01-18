@@ -114,7 +114,10 @@ static struct cache_ops ops = {
   .read_done = read_done,
   .lock = lock,
   .unlock = unlock,
-  .stats = 0
+  .stats = 0,
+  .queue_write = cache_queue_write,
+  .dequeue_prepare = 0,
+  .dequeue_go = 0,
 };
 
 struct source * source_cachemmap2_make(struct running *rr,
