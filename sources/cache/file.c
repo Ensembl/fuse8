@@ -126,6 +126,8 @@ int dequeue_prepare(struct cache *c,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
 
   if(cf->spoolf) {
+    fclose(cf->spoolf);
+    cf->spoolf = 0;
     if(lock_path(cf->lock)) {
       log_debug(("dequeue lock contention, holding off"));
       return 0;
