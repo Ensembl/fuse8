@@ -161,3 +161,12 @@ struct hash * hash_str(const char *hashs) {
   return h;
 }
 
+struct hash * hash_bin(void *mem,int len) {
+  struct hash *h;
+
+  h = safe_malloc(sizeof(struct hash));
+  if(len>EVP_MAX_MD_SIZE) { len = EVP_MAX_MD_SIZE; }
+  memcpy(h->val,mem,len);
+  h->len = len;
+  return h;
+}

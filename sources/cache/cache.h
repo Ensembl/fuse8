@@ -15,19 +15,25 @@ struct header {
 struct cache {
   struct cache_ops *ops;
   void *priv;
-  struct event *timer,*dequeue_timer,*fast_timer;
+  struct event *timer,*reflect_timer;
   void *ones,*zeros;
+  struct source *reflect;
+  char *reflect_name;
+  int pending,reflected;
 
   /* config */
   int64_t block_size,entries,set_size;
 
   /* stats */
   int64_t lifespan,cur_lifespan,n_lifespan,hits,misses,hit_rate;
+  int64_t lk_time,rf_time,rf_runs;
 };
 
 struct cache_ops {
   void (*open)(struct cache *c,struct jpf_value *conf,void *priv);
   void (*close)(struct cache *c,void *priv);
+  int (*lock)(struct cache *c,void *priv);
+  void (*unlock)(struct cache *c,void *priv);
   void (*get_header)(struct header **h,struct cache *c,int slot,void *priv);
   void (*set_header)(struct cache *c,struct header *h,int slot,void *priv);
   void (*header_done)(struct cache *c,struct header *h,int slot,void *priv);
@@ -35,12 +41,7 @@ struct cache_ops {
   void (*write_data)(struct cache *c,int slot,char *data,void *priv);
   void (*read_done)(char *data,void *priv);
   void (*stats)(struct cache *c,struct jpf_value *out,void *priv);
-  void (*queue_write)(struct cache *c,struct hash *h,char *data,void *priv);
-  int (*dequeue_prepare)(struct cache *c,void *priv);
-  int (*dequeue_go)(struct cache *c,void *priv);
 };
-
-void cache_queue_write(struct cache *c,struct hash *h,char *data,void *priv);
 
 struct source * source_cache_make(struct running *rr,
                                   struct jpf_value *conf,

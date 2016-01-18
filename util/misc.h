@@ -28,6 +28,8 @@ char * make_string_v(const char *fmt,va_list ap)
 char * safe_readlink(char *);
 char * self_path(void);
 
+void fsync_async(int fd,void (*cb)(void *),void *);
+
 #if __GNUC__ >= 3
 #define if_rare(pred) if(__builtin_expect((pred),0))
 #define if_common(pred) if(__builtin_expect((pred),1))
@@ -39,6 +41,7 @@ char * self_path(void);
 char * iso_localtime(time_t t);
 int write_all(int fd,char *buf,size_t count);
 int read_all(int fd,char *buf,size_t count);
+int read_file(char *filename,char **out);
 
 struct safe_passwd {
   struct passwd *p;

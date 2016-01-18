@@ -167,6 +167,7 @@ static void configure_sources(struct running *rr,struct jpf_value *raw) {
   for(i=0;i<raw->v.assoc.len;i++) {
     configure_source(rr,raw->v.assoc.k[i],raw->v.assoc.v[i]);
   }
+  sl_open(rr->sl);
 }
 
 static void configure_interfaces(struct running *rr,

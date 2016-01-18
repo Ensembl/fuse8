@@ -46,9 +46,9 @@ struct source {
   struct sourcelist *sl;
   struct failures *fails;
 
-  char *name;
+  char *type,*name;
   void *priv;
-  src_fn close;
+  src_fn open,close;
   src_stat_fn stat;
   src_lookup_fn lookup;
   src_readdir_fn readdir;

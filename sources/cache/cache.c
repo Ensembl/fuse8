@@ -59,40 +59,24 @@ static void cache_stats(struct source *src,struct jpf_value *out) {
   jpfv_assoc_add(out,"lifespan_sec",
                  jpfv_number(((float)c->lifespan)/1000000));
   jpfv_assoc_add(out,"hitrate_perc",jpfv_number(c->hit_rate));
+  if(c->reflected) {
+    jpfv_assoc_add(out,"lktime_secs",jpfv_number(c->lk_time/1000000.0));
+    jpfv_assoc_add(out,"rftime_secs",jpfv_number(c->rf_time/1000000.0));
+    jpfv_assoc_add(out,"reflect_runs",jpfv_number_int(c->rf_runs));
+  }
   if(c->ops->stats)
     c->ops->stats(c,out,c->priv);
 }
 
-static void fast_tick(evutil_socket_t fd,short what,void *arg) {
-  struct cache *c = (struct cache *)arg;
-
-  log_debug(("fast timer"));
-  if(!c->ops->dequeue_go(c,c->priv)) {
-    event_del(c->fast_timer);
-  }
-}
-
-static void dequeue_tick(evutil_socket_t fd,short what,void *arg) {
-  struct cache *c = (struct cache *)arg;
-  struct timeval fast_time = { 0, 10000 }; // XXX conf
-
-  if(!c->ops->dequeue_prepare) { return; }
-  log_debug(("dequeue_tick"));
-  if(!c->ops->dequeue_prepare(c,c->priv)) {
-    log_debug(("dequeue declined"));
-    return;
-  }
-  log_debug(("dequeue accepted"));
-  event_add(c->fast_timer,&fast_time);
-}
+static void reflect_tick(evutil_socket_t fd, short what, void *arg);
 
 static struct cache * cache_open(struct event_base *eb,
                                  struct jpf_value *conf,
                                  struct cache_ops *ops,void *priv) {
   struct cache *c;
   struct timeval one_min = { 60, 0 }; // XXX conf
-  struct timeval dequeue_time = { 5, 0 }; // XXX conf
-  struct jpf_value *path;
+  struct timeval reflect_time = { 5, 0 }; // XXX conf
+  struct jpf_value *path,*rname;
   int64_t block,entries,set;
   
   path = jpfv_lookup(conf,"filename");
@@ -110,16 +94,24 @@ static struct cache * cache_open(struct event_base *eb,
   c->zeros = safe_malloc(HASHSIZE);
   memset(c->ones,255,HASHSIZE);
   memset(c->zeros,0,HASHSIZE);
-  /* dequeue */
-  c->dequeue_timer = event_new(eb,-1,EV_PERSIST,dequeue_tick,c);
-  c->fast_timer = event_new(eb,-1,EV_PERSIST,fast_tick,c);
-  event_add(c->dequeue_timer,&dequeue_time);
+  c->reflect = 0;
+  c->reflect_name = 0;
+  c->reflected = 0;
+  c->pending = 0;
+  rname = jpfv_lookup(conf,"reflect");
+  if(rname) {
+    c->reflect_name = strdup(rname->v.string);
+  }
   /* Stats */
   c->lifespan = 0;
   c->cur_lifespan = 0;
   c->n_lifespan = 0;
   c->hits = c->misses = c->hit_rate = 0;
-  /* Timer */
+  c->lk_time = c->rf_time = 0;
+  c->rf_runs = 0;
+  /* Timers */
+  c->reflect_timer = event_new(eb,-1,EV_PERSIST,reflect_tick,c);
+  event_add(c->reflect_timer,&reflect_time);
   c->timer = event_new(eb,-1,EV_PERSIST,timer_tick,c);
   event_add(c->timer,&one_min);
   /* Subtype */
@@ -130,15 +122,14 @@ static struct cache * cache_open(struct event_base *eb,
 }
 
 static void cache_close(struct cache *c) {
+  if(c->reflect) { src_release(c->reflect); }
   c->ops->close(c,c->priv);
   free(c->ones);
   free(c->zeros);
   event_del(c->timer);
   event_free(c->timer);
-  event_del(c->dequeue_timer);
-  event_free(c->dequeue_timer);
-  event_del(c->fast_timer);
-  event_free(c->fast_timer);
+  event_del(c->reflect_timer);
+  event_free(c->reflect_timer);
   free(c);
 }
 
@@ -189,6 +180,18 @@ static int cache_check_lock(struct cache *c,int slot,struct hash *hh) {
   return found;
 }
 
+static int cache_lock_any(struct cache *c,int slot,struct hash **hh) {
+  struct header *h;
+
+  c->ops->get_header(&h,c,slot,c->priv);
+  if(!memcmp(h->hash,c->zeros,HASHSIZE) ||
+     !memcmp(h->hash,c->ones,HASHSIZE)) {
+    return 0;
+  }
+  *hh = hash_bin(h->hash,HASHSIZE);
+  return 1;
+}
+
 static void cache_unlock(struct cache *c,int slot,struct hash *hh) {
   struct header *h;
 
@@ -198,10 +201,21 @@ static void cache_unlock(struct cache *c,int slot,struct hash *hh) {
   c->ops->header_done(c,h,slot,c->priv);
 }
 
-void cache_queue_write(struct cache *c,struct hash *h,char *data,void *priv) {
+static void cache_unlock_empty(struct cache *c,int slot) {
+  struct header *h;
+
+  c->ops->get_header(&h,c,slot,c->priv); 
+  memcpy(h->hash,c->zeros,HASHSIZE);
+  c->ops->set_header(c,h,slot,c->priv);
+  c->ops->header_done(c,h,slot,c->priv);
+}
+
+static void cache_queue_write(struct cache *c,struct hash *h,
+                              char *data,void *priv) {
   uint64_t slot;
 
   slot = (hash_mod(h,c->entries) + (rand()%c->set_size)) %c->entries;
+  c->pending = 1;
   log_debug(("writing block at (%"PRId64")",slot));
   if(cache_lock(c,slot)) {
     c->ops->write_data(c,slot,data,c->priv);
@@ -215,7 +229,7 @@ static void write_block(struct cache *c,struct request *rq,
   struct hash *h;
 
   h = cache_hash(rq,block);
-  c->ops->queue_write(c,h,data,c->priv);
+  cache_queue_write(c,h,data,c->priv);
   free_hash(h);
 }
 
@@ -301,8 +315,86 @@ static void ds_read(struct source *ds,struct request *rq) {
   rq_run_next(rq);
 }
 
+static void reflect_to(struct source *src,struct cache *c,
+                       struct hash *h,char *data) {
+  int64_t start;
+
+  start = microtime();
+  cache_queue_write(c,h,data,c->priv);
+  src_collect_wtime(src,microtime()-start); 
+}
+
+static void reflect_go(struct cache *c) {
+  struct cache *target;
+  uint64_t slot,start,now,now2;
+  struct hash *h;
+  char *data;
+
+  if(!c->reflect || !c->pending) { return; } // XXX
+  target = (struct cache *)(c->reflect->priv);
+  start = microtime();
+  if(target->ops->lock(target,target->priv)) {
+    log_debug(("target locked, not reflecting"));
+    return;
+  }
+  c->pending = 0;
+  target->rf_runs++;
+  target->lk_time += microtime() - start;
+  for(slot=0;slot<c->entries;slot++) {
+    if(!cache_lock_any(c,slot,&h)) { continue; }
+    log_debug(("slot with data for reflection slot=%"PRId64,slot));
+    c->ops->read_data(c,slot,&data,c->priv);
+    reflect_to(c->reflect,target,h,data);
+    c->ops->read_done(data,c->priv);
+    free_hash(h);
+    cache_unlock_empty(c,slot);
+  }
+  now = microtime();
+  target->ops->unlock(target,target->priv);
+  now2 = microtime();
+  target->lk_time += now2 - now;
+  target->rf_time += now2-start;
+}
+
+
+static void reflect_tick(evutil_socket_t fd, short what, void *arg) {
+  struct cache *c = (struct cache *)arg;
+
+  reflect_go(c);
+}
+
+static void reflected(struct source *src) {
+  struct cache *c = (struct cache *)(src->priv);
+
+  src->write = 0;
+  c->reflected = 1;
+}
+
 static void ds_close(struct source *ds) {
   cache_close((struct cache *)ds->priv);
+}
+
+static void ds_open(struct source *ds) {
+  struct cache *c = (struct cache *)(ds->priv);
+  struct source *src;
+
+  if(c->reflect_name) {
+    log_debug(("Looking to reflect to '%s'",c->reflect_name));
+    src = sl_find(src_sl(ds),c->reflect_name);
+    if(src) {
+      if(!strcmp(src_type(src),"cache")) {
+        src_acquire(src);
+        log_debug(("found it"));
+        c->reflect = src;
+        reflected(src);
+      } else {
+        log_debug(("wrong type!"));
+      } 
+    } else {
+      log_debug(("not found"));
+    }
+    free(c->reflect_name);
+  }  
 }
 
 struct source * source_cache_make(struct running *rr,
@@ -312,11 +404,13 @@ struct source * source_cache_make(struct running *rr,
   struct cache *c;
 
   c = cache_open(rr->eb,conf,ops,priv);
-  ds = src_create();
+  ds = src_create("cache");
   ds->priv = c;
+  ds->open = ds_open;
   ds->read = ds_read;
   ds->write = ds_write;
   ds->close = ds_close;
   ds->stats = cache_stats;
   return ds;
 }
+

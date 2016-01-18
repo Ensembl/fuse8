@@ -8,6 +8,7 @@
 struct sourcelist * sl_create(void);
 void sl_release(struct sourcelist *sl);
 void sl_acquire(struct sourcelist *sl);
+void sl_open(struct sourcelist *sl);
 void sl_add_src(struct sourcelist *sl,struct source *src);
 struct ref * sl_ref(struct sourcelist *sl);
 
@@ -18,6 +19,7 @@ int sl_lookup(struct sourcelist *sl,int inode,
               const char *name,struct fuse_stat *fs);
 int sl_readdir(struct sourcelist *sl,int inode,int **members);
 int sl_readlink(struct sourcelist *sl,int inode,char **out);
+struct source * sl_find(struct sourcelist *sl,char *name);
 
 /* Internal use */
 void sl_acquire_weak(struct sourcelist *sl);

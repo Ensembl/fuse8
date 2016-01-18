@@ -167,7 +167,7 @@ struct source * source_http_make(struct running *rr,
                                  struct jpf_value *conf) {
   struct source *ds;
 
-  ds = src_create();
+  ds = src_create("http");
   ds->priv = http_open(rr->eb,rr->edb);
   ds->read = http_read;
   ds->write = 0;

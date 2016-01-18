@@ -30,14 +30,20 @@ static void src_ref_release(void *data) {
   if(src->fails) { failures_free(src->fails); }
 }
 
-struct source * src_create(void) {
+void src_open(struct source *src) {
+  if(src->open) { src->open(src); }
+}
+
+struct source * src_create(char *type) {
   struct source *src;
 
   src = safe_malloc(sizeof(struct source));
   ref_create(&(src->r));
   ref_on_release(&(src->r),src_ref_release,src);
   ref_on_free(&(src->r),src_ref_free,src);
+  src->type = type;
   src->fails = 0;
+  src->open = 0;
   src->close = 0;
   src->read = 0;
   src->write = 0;
@@ -89,6 +95,8 @@ void src_collect(struct source *src,int64_t length) {
             src->name,src->hits,src->bytes));
 }
 
+struct sourcelist * src_sl(struct source *src) { return src->sl; }
+
 void src_global_stats(struct source *src,struct jpf_value *out) {
   jpfv_assoc_add(out,"hits_total",jpfv_number_int(src->hits));
   jpfv_assoc_add(out,"writes_total",jpfv_number_int(src->writes));
@@ -112,3 +120,4 @@ int src_set_failed(struct source *src,char *path) {
   failures_fail(src->fails,path);
 }
 
+char * src_type(struct source *src) { return src->type; }

@@ -403,7 +403,7 @@ struct source * source_meta_make(struct running *rr,
   struct meta *m;
   struct jpf_value *filename;
 
-  src = src_create();
+  src = src_create("meta");
   src->priv = m = safe_malloc(sizeof(struct meta));
   src->stat = sm_stat;
   src->lookup = sm_lookup;

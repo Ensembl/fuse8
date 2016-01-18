@@ -21,6 +21,13 @@ sources:
                entries: +16
                set_size: +8
 
+  tmpcache: type: cachefile
+            filename: spool.dat
+            block: +65536
+            entries: +16
+            set_size: +8
+            reflect: bigcache
+
   bigcache:  type: cachefile
              filename: big.dat
              spoolfile: big.spool

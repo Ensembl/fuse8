@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
 #include "util/misc.h"
 #include "util/logging.h"
 
@@ -18,6 +19,15 @@ static void sl_ref_release(void *data) {
   for(src=sl->root;src;src=srcn) {
     srcn = src->next;
     src_release(src);
+  }
+}
+
+void sl_open(struct sourcelist *sl) {
+  struct source *src;
+
+  log_debug(("sourcelist open"));
+  for(src=sl->root;src;src=src->next) {
+    src_open(src);
   }
 }
 
@@ -63,6 +73,16 @@ void sl_add_src(struct sourcelist *sl,struct source *src) {
   *last = src;
   src->prev = last;
   src->next = 0;
+}
+
+struct source * sl_find(struct sourcelist *sl,char *name) {
+  struct source *src;
+
+  for(src=sl->root;src;src=src->next) {
+    if(!strcmp(src->name,name))
+      return src;
+  }
+  return 0;
 }
 
 // XXX inode sharing

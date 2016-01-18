@@ -31,13 +31,12 @@
 CONFIG_LOGGING(cachefile);
 
 struct cache_file {
-  char *lock,*spoolfile,*spoolinfile;
+  char *lock;
   int fd;
-  FILE *spoolf,*spoolinf;
 
-  /* stats */
-  int64_t n_gdequeue,n_bdequeue,dequeue_active,dequeue_elapsed;
-  int64_t dequeue_start;
+  /* lock breaking */
+  int64_t seen_when;
+  char *seen;
 };
 
 // XXX properly marshalled header
@@ -63,8 +62,6 @@ static void header_done(struct cache *c,struct header *h,int slot,void *p) {
   free(h);
 }
 
-// XXX timeout for lock
-
 static void write_data(struct cache *c,int slot,char *data,void *p) {
   struct cache_file *cf = (struct cache_file *)p;
 
@@ -89,23 +86,10 @@ static void read_done(char *data,void *priv) {
 static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
   struct jpf_value *path; 
-  struct strbuf lockp,spoolinp;
+  struct strbuf lockp;
   int flags;
  
   flags = 0;
-  cf->spoolf = 0;
-  cf->spoolfile = 0;
-  cf->spoolinfile = 0;
-  path = jpfv_lookup(conf,"spoolfile");
-  if(path) {
-    cf->spoolfile = strdup(path->v.string);
-    strbuf_init(&spoolinp,0);
-    strbuf_add(&spoolinp,"%s",path->v.string);
-    strbuf_add(&spoolinp,"%s","-in");
-    cf->spoolinfile = strbuf_str(&spoolinp);
-    flags |= O_SYNC;
-  }
-  unlink(cf->spoolfile);
   path = jpfv_lookup(conf,"filename");
   if(!path) { die("No path to cachefile specified"); }
   cf->fd = open(path->v.string,O_CREAT|O_RDWR|O_TRUNC|flags,0666);
@@ -116,8 +100,7 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   strbuf_add(&lockp,"%s","-lock");
   cf->lock = strbuf_str(&lockp);
   log_debug(("Lock is '%s'",cf->lock));
-  cf->n_gdequeue = cf->n_bdequeue = 0;
-  cf->dequeue_active = cf->dequeue_elapsed = 0;
+  cf->seen = 0;
 }
 
 static void cf_close(struct cache *c,void *priv) {
@@ -125,133 +108,55 @@ static void cf_close(struct cache *c,void *priv) {
 
   if(close(cf->fd)<0) { die("Cannot close cache file"); }
   free(cf->lock);
-  free(cf->spoolfile);
-  free(cf->spoolinfile);
   free(cf);
 }
 
-int dequeue_prepare(struct cache *c,void *priv) {
+#define ANCIENT_LOCK 30000000
+static int lock(struct cache *c,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
+  char *contents;
+  int r;
+  int64_t now;
 
-  if(cf->spoolf) {
-    fclose(cf->spoolf);
-    cf->spoolf = 0;
-    cf->n_bdequeue++;
-    if(lock_path(cf->lock)) {
-      log_debug(("dequeue lock contention, holding off"));
-      return 0;
+  r = lock_path(cf->lock);
+  if(!r) {
+    if(cf->seen) {
+      free(cf->seen);
+      cf->seen = 0;
     }
-    if(rename(cf->spoolfile,cf->spoolinfile)) {
-      unlink(cf->spoolfile);
-      unlock_path(cf->lock);
-      log_warn(("dequeue spoolfile could not be renamed errno=%d",errno));
-      return 0;
-    }
-    cf->spoolinf = fopen(cf->spoolinfile,"r");
-    if(!cf->spoolinf) {
-      log_warn(("Cannot open spoolin file"));
-      unlock_path(cf->lock);
-      return 0;
-    }
-    log_debug(("preparing do dequeue"));
-    cf->n_gdequeue++;
-    cf->n_bdequeue--;
-    cf->dequeue_start = microtime();
-    return 1;
-  } else {
-    unlink(cf->spoolfile);
-    return 0;
+    return r;
   }
+  now = microtime();
+  if(!read_file(cf->lock,&contents)) {
+    if(cf->seen && strcmp(cf->seen,contents)) {
+      free(cf->seen);
+      cf->seen = 0;
+    }
+    if(!cf->seen) {
+      cf->seen = strdup(contents);
+      cf->seen_when = now;
+    }
+    if(cf->seen_when+ANCIENT_LOCK<now) {
+      log_warn(("ancient lock: busting it"));
+      unlink(cf->lock);
+      return lock_path(cf->lock);   
+    }
+  }
+  return r;
 }
 
-int dequeue_go(struct cache *c,void *priv) {
-  struct cache_file *cf = (struct cache_file *)priv;
-  struct hash *h;
-  int64_t start;
-  int more = 1;
-  char *hstr,*data;
-  int64_t blen,finish;
-
-  start = microtime();
-  data = safe_malloc(c->block_size);
-  log_debug(("dequeueing"));
-  while(microtime()-start < 1000) {
-    if(fscanf(cf->spoolinf,"%m[0-9a-fA-F]:%"PRId64"\n",&hstr,&blen)<1) {
-      more = 0;
-      break;
-    }
-    log_debug(("Got hash '%s' len=%"PRId64,hstr,blen));
-    h = hash_str(hstr);
-    if(!h) {
-      more = 0;
-      break;
-    }
-    free(hstr);
-    if(fread(data,c->block_size,1,cf->spoolinf)<1) {
-      more = 0;
-      break;
-    }
-    cache_queue_write(c,h,data,priv);
-    free_hash(h);
-  }
-  finish = microtime();
-  if(!more) {
-    log_debug(("finished dequeueing"));
-    fclose(cf->spoolinf);
-    cf->spoolinf = 0;
-    unlink(cf->spoolinfile);
-    unlock_path(cf->lock);
-    cf->dequeue_elapsed = finish - cf->dequeue_start;
-  }
-  free(data);
-  cf->dequeue_active += finish-start;
-  return more;
-}
-
-static void spool_open(struct cache_file *cf) {
-  if(!cf->spoolfile || cf->spoolf) { return; }
-  cf->spoolf = fopen(cf->spoolfile,"ab");
-  if(!cf->spoolf) {
-    log_warn(("Could not open spool file (errno=%d)",errno));
-  }
-}
-
-void queue_write(struct cache *c,struct hash *h,char *data,void *priv) {
-  struct cache_file *cf = (struct cache_file *)priv;
-  char *hashstr;
-  int corrupt = 0;
-
-  if(!cf->spoolfile) {
-    cache_queue_write(c,h,data,priv);
-    return;
-  }
-  spool_open(cf);
-  if(!cf->spoolf) { return; }
-  hashstr = print_hash(h);
-  if(fprintf(cf->spoolf,"%s:%"PRId64"\n",hashstr,c->block_size)<0) {
-    log_warn(("cannot spool: fprintf failed errno=%d",errno));
-    corrupt = 1;
-  }
-  if(fwrite(data,c->block_size,1,cf->spoolf)!=1) {
-    log_warn(("cannot spool: fwrite failed errno=%d",errno));
-    corrupt = 1;
-  }
-  free(hashstr);
-  if(corrupt) {
-    unlink(cf->spoolfile);
-    fclose(cf->spoolf);
-  }
-}
-
-static void stats(struct cache *c,struct jpf_value *out,void *priv) {
+static void unlock_done(void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
 
-  jpfv_assoc_add(out,"dequeue_good",jpfv_number_int(cf->n_gdequeue));
-  jpfv_assoc_add(out,"dequeue_bad",jpfv_number_int(cf->n_bdequeue));
-  jpfv_assoc_add(out,"dequeue_elapsed",
-    jpfv_number(((double)cf->dequeue_elapsed)/1000000.0));
-  jpfv_assoc_add(out,"dequeue_active",
-    jpfv_number(((double)cf->dequeue_active)/1000000.0));
+  log_debug(("fsync done"));
+  unlock_path(cf->lock);
+}
+
+static void unlock(struct cache *c,void *priv) {
+  struct cache_file *cf = (struct cache_file *)priv;
+
+  log_debug(("fsync-ing"));
+  fsync_async(cf->fd,unlock_done,cf);
 }
 
 static struct cache_ops ops = {
@@ -263,10 +168,9 @@ static struct cache_ops ops = {
   .read_data = read_data,
   .write_data = write_data,
   .read_done = read_done,
-  .stats = stats,
-  .queue_write = queue_write,
-  .dequeue_prepare = dequeue_prepare,
-  .dequeue_go = dequeue_go,
+  .stats = 0,
+  .lock = lock,
+  .unlock = unlock,
 };
 
 struct source * source_cachefile2_make(struct running *rr,

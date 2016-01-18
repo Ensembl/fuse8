@@ -244,7 +244,7 @@ struct source * syncsource_create(struct syncqueue *sq,
   struct source *src;
 
   ss->sq = sq;
-  src = src_create();
+  src = src_create("sync");
   src->priv = ss;
   src->close = src_close;
   src->read = src_read;

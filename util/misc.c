@@ -5,13 +5,18 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <openssl/evp.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <pwd.h>
 #include <grp.h>
+#include <pthread.h>
+#include <inttypes.h>
 
 #include "misc.h"
+#include "strbuf.h"
 
 int64_t microtime(void) {
   struct timeval tv;
@@ -284,6 +289,25 @@ int read_all(int fd,char *buf,size_t count) {
   return 0;
 }
 
+#define GULP 1024
+int read_file(char *filename,char **out) {
+  int fd,r;
+  struct strbuf buf;
+  char *space;
+
+  strbuf_init(&buf,0);
+  fd = open(filename,O_RDONLY);
+  if(fd<0) { return -1; }
+  while(1) {
+    space = strbuf_extend(&buf,GULP);
+    r = read_all(fd,space,GULP);
+    strbuf_retract(&buf,GULP-r);
+    if(!r) { break; }
+  }
+  *out = strbuf_str(&buf);
+  return 0; 
+}
+
 #define MAX_SYMLINK (100*1024*1024)
 char * safe_readlink(char *path) {
   char *out;
@@ -395,7 +419,7 @@ void ref_until_free(struct ref *onto,struct ref *from) {
 
 #define TMPXNUM 6
 int lock_path(char *path) {
-  char *tmpl;
+  char *tmpl,*when;
   int len,fd,ret;
 
   len = strlen(path);
@@ -408,6 +432,9 @@ int lock_path(char *path) {
   ret = link(tmpl,path);
   if(ret && errno==EEXIST) { ret = 1; }
   // XXX not a lot we can do if these fail, but should include diagnostics
+  when = make_string("%"PRId64,microtime());
+  write_all(fd,when,strlen(when)+1);
+  free(when);
   close(fd);
   unlink(tmpl);
   free(tmpl);
@@ -416,4 +443,34 @@ int lock_path(char *path) {
 
 int unlock_path(char *path) {
   return unlink(path);  
+}
+
+struct fa_data {
+  int fd;
+  void (*cb)(void *);
+  void *priv; 
+};
+
+static void * fsync_async_thread(void *data) {
+  struct fa_data *fad = (struct fa_data *)data;
+
+  fsync(fad->fd);
+  fad->cb(fad->priv);
+  free(fad);
+  return 0;
+}
+
+void fsync_async(int fd,void (*cb)(void *),void *priv) {
+  pthread_t thread;
+  pthread_attr_t thread_attr;
+  struct fa_data *fad;
+
+  fad = safe_malloc(sizeof(struct fa_data));
+  fad->fd = fd;
+  fad->cb = cb;
+  fad->priv = priv;
+  pthread_attr_init(&thread_attr);
+  pthread_attr_setdetachstate(&thread_attr,PTHREAD_CREATE_DETACHED);
+  pthread_create(&thread,&thread_attr,fsync_async_thread,fad);
+  pthread_attr_destroy(&thread_attr); 
 }
