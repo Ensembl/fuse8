@@ -210,20 +210,23 @@ static void fuse_open(fuse_req_t req,fuse_ino_t ino,
   }
 }
 
+// XXX can-quit ref interlock
 static void read_done(int failed_errno,char *data,void *priv) {
   struct fuse_req *fr;
 
   fr = (struct fuse_req *)priv;
-  if(failed_errno) {
-    // XXX better reporting
-    log_warn(("read failed for '%s' errno=%d",fr->uri,failed_errno));
-    ic_collect(fr->fi->ic,-1);
-    fuse_reply_err(fr->req,failed_errno);
-  } else {
-    // XXX explicit size in request return
-    log_debug(("read success"));
-    ic_collect(fr->fi->ic,fr->size);
-    fuse_reply_buf(fr->req,data,fr->size);
+  if(!fr->fi->did_quit) {
+    if(failed_errno) {
+      // XXX better reporting
+      log_warn(("read failed for '%s' errno=%d",fr->uri,failed_errno));
+      ic_collect(fr->fi->ic,-1);
+      fuse_reply_err(fr->req,failed_errno);
+    } else {
+      // XXX explicit size in request return
+      log_debug(("read success"));
+      ic_collect(fr->fi->ic,fr->size);
+      fuse_reply_buf(fr->req,data,fr->size);
+    }
   }
   ic_release(fr->fi->ic);
   free(fr->uri);
