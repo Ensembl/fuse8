@@ -87,14 +87,17 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
   struct jpf_value *path; 
   struct strbuf lockp;
-  int flags;
- 
-  flags = 0;
+  int keep,flags;
+
+  keep = jpfv_bool(jpfv_lookup(conf,"keep"));
+  if(keep<=0) { flags = O_TRUNC; }
   path = jpfv_lookup(conf,"filename");
   if(!path) { die("No path to cachefile specified"); }
-  cf->fd = open(path->v.string,O_CREAT|O_RDWR|O_TRUNC|flags,0666);
+  cf->fd = open(path->v.string,O_CREAT|O_RDWR|flags,0666);
   if(cf->fd<0) { die("Cannot create/open cache file"); }
-  if(ftruncate(cf->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
+  if(keep<=0) {
+    if(ftruncate(cf->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
+  }
   strbuf_init(&lockp,0);
   strbuf_add(&lockp,"%s",path->v.string);
   strbuf_add(&lockp,"%s","-lock");
