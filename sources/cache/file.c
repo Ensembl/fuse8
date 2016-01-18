@@ -134,10 +134,16 @@ int dequeue_prepare(struct cache *c,void *priv) {
     }
     if(rename(cf->spoolfile,cf->spoolinfile)) {
       unlink(cf->spoolfile);
+      unlock_path(cf->lock);
+      log_warn(("dequeue spoolfile could not be renamed errno=%d",errno));
       return 0;
     }
     cf->spoolinf = fopen(cf->spoolinfile,"r");
-    if(!cf->spoolinf) { return 0; }
+    if(!cf->spoolinf) {
+      log_warn(("Cannot open spoolin file"));
+      unlock_path(cf->lock);
+      return 0;
+    }
     log_debug(("preparing do dequeue"));
     return 1;
   } else {
