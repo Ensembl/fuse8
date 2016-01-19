@@ -8,7 +8,7 @@ struct connection;
 
 typedef void (*conn_cb)(struct connection *conn,void *priv);
 
-void unget_connection(struct connection *conn);
+void unget_connection(struct connection *conn,int bad);
 
 void get_connection(struct connections *cnn,
                     const char *host,int port,

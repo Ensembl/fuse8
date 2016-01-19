@@ -75,7 +75,7 @@ struct endpoint {
 };
 
 enum conn_state {
-  CONN_NEW, CONN_AWAITDNS, CONN_READY, CONN_INUSE, CONN_FAILEDDNS
+  CONN_NEW, CONN_AWAITDNS, CONN_READY, CONN_INUSE, CONN_FAILEDDNS, CONN_BAD
 };
 
 struct connection {
@@ -164,9 +164,9 @@ static void try_link(struct endpoint *ep) {
   } 
 }
 
-void unget_connection(struct connection *conn) {
-  log_debug(("Connection returned"));
-  conn->state = CONN_READY;
+void unget_connection(struct connection *conn,int bad) {
+  log_debug(("Connection returned bad=%d",bad));
+  conn->state = bad?CONN_BAD:CONN_READY;
   try_link(conn->ep);
 }
 
@@ -208,6 +208,7 @@ static void try_resolve(struct endpoint *ep) {
 static void free_connection(void *priv) {
   struct connection *conn = (struct connection *)priv;
 
+  log_debug(("freeing connection"));
   if(conn->evcon) { evhttp_connection_free(conn->evcon); }
   free(conn);
 }
@@ -268,13 +269,11 @@ static void tidy_endpoint(struct endpoint *ep) {
   while(ep->conn) {
     c = ep->conn;
     ep->conn = c->next;
-    if(c->state == CONN_READY && c->last_used+TOO_OLD < now) {
+    if((c->state == CONN_BAD) ||
+       (c->state == CONN_READY && c->last_used+TOO_OLD < now) ||
+       (c->last_used+TOO_ANCIENT < now || ep->cnn->closing)) {
       /* dispose */
-      log_debug(("tidying away connection"));
-      ref_release(&(c->r));
-      ep->n_conn--;
-    } else if(c->last_used+TOO_ANCIENT < now || ep->cnn->closing) {
-      log_debug(("freeing ancient connection"));
+      log_debug(("freeing connection"));
       ref_release(&(c->r));
       ep->n_conn--;
     } else {

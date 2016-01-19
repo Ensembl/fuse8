@@ -17,16 +17,14 @@ CONFIG_LOGGING(http);
 
 struct http_request {
   struct httpclient *cli;
-  /* used between dns and main request */
   char *uris;
   char *host;
   struct evhttp_uri *uri;
-  int port;
+  int port,retries;
   /* stats */
   struct http_stats stats;
   int64_t dns_start;
   /**/
-  int success;
   char *out;
   int64_t offset,len;
   http_fn callback;
@@ -34,18 +32,28 @@ struct http_request {
   struct connection *conn;
 };
 
-static void error(struct http_request *rq,char *msg) {
-  rq->success = 0;
-  free(rq->out);
-  rq->out = strdup(msg);
-  log_warn(("http error: '%s'",msg));
-  rq->callback(rq->success,rq->out,rq->len,0,rq->priv,&(rq->stats));
+static int try(struct http_request *rq);
+
+static void free_rq(struct http_request *rq) {
+  rq->retries = -1; /* stop attempts to resurrect during destroy */
   free(rq->out);
   if(rq->uris) { free(rq->uris); rq->uris = 0; }
   if(rq->host) { free(rq->host); rq->host = 0; }
   if(rq->uri) { evhttp_uri_free(rq->uri); rq->uri = 0; }
-  if(rq->conn) { unget_connection(rq->conn); rq->conn = 0; }
+  if(rq->conn) { unget_connection(rq->conn,0); rq->conn = 0; }
   free(rq);
+}
+
+static void error(struct http_request *rq,char *msg) {
+  msg = strdup(msg);
+  log_warn(("http error: '%s'",msg));
+  if(rq->conn) { unget_connection(rq->conn,1); rq->conn = 0; }
+  if(try(rq)) {
+    log_warn(("too many errors, failing request"));
+    rq->callback(0,msg,rq->len,0,rq->priv,&(rq->stats));
+    free_rq(rq);
+  }
+  free(msg);
 }
 
 static int parse_range(const char *range,
@@ -72,7 +80,7 @@ static void done(struct evhttp_request *req,void *priv) {
   int eof;
 
   rq = (struct http_request *)priv;
-  if(!req) {
+  if(!req || !(rand()%10)) {
     error(rq,"Request failed");
     return; 
   }
@@ -118,12 +126,8 @@ static void done(struct evhttp_request *req,void *priv) {
     error(rq,"Short buffer");
     return;
   }
-  free(rq->uris); rq->uris = 0;
-  free(rq->host); rq->host = 0;
-  rq->callback(rq->success,rq->out,rq->len-amt,eof,rq->priv,&(rq->stats));
-  free(rq->out);
-  unget_connection(rq->conn); rq->conn = 0;
-  free(rq);
+  rq->callback(1,rq->out,rq->len-amt,eof,rq->priv,&(rq->stats));
+  free_rq(rq);
 }
 
 static void make_request(struct connection *conn,void *priv) {
@@ -133,6 +137,7 @@ static void make_request(struct connection *conn,void *priv) {
   struct evhttp_request *req;
   int r;
 
+  if(rq->retries==-1) { return; } /* In middle of free! */
   if(!conn) {
     error(rq,"Could not create connection");
     return;
@@ -152,8 +157,6 @@ static void make_request(struct connection *conn,void *priv) {
 	        (unsigned long long)(rq->offset+rq->len-1));
   evhttp_add_header(reqh,"Range",range);
   free(range);
-  evhttp_uri_free(rq->uri);
-  rq->uri = 0;
   r = evhttp_make_request(evconnection(conn),req,EVHTTP_REQ_GET,rq->uris);
   if(r) {
     error(rq,"Request failed");
@@ -191,6 +194,15 @@ void httpclient_finish(struct httpclient *cli,http_finished cb,void *priv) {
   cnn_free(cli->cnn,cnn_finished,cli);
 }
 
+#define MAX_RETRIES 10
+static int try(struct http_request *rq) {
+  if(rq->retries > MAX_RETRIES || rq->retries==-1) { return -1; }
+  rq->retries++;
+  rq->dns_start = microtime();
+  get_connection(rq->cli->cnn,rq->host,rq->port,make_request,rq);
+  return 0;
+}
+
 // XXX tidy up
 void http_request(struct httpclient *cli,char *uris,size_t off,size_t size,
                   http_fn callback,void *priv) {
@@ -198,7 +210,6 @@ void http_request(struct httpclient *cli,char *uris,size_t off,size_t size,
   const char *host;
 
   rq = safe_malloc(sizeof(struct http_request));
-  rq->success = 1;
   rq->out = safe_malloc(size);
   rq->offset = off;
   rq->len = size;
@@ -206,6 +217,7 @@ void http_request(struct httpclient *cli,char *uris,size_t off,size_t size,
   rq->priv = priv;
   rq->cli = cli;
   rq->conn = 0;
+  rq->uri = 0;
 
   // XXX fail not only noent
   // XXX informative errors
@@ -223,8 +235,8 @@ void http_request(struct httpclient *cli,char *uris,size_t off,size_t size,
   rq->host = strdup(host);
   rq->port = evhttp_uri_get_port(rq->uri);
   rq->stats = (struct http_stats){ .dns_time = 0 };
+  rq->retries = 0;
   if(rq->port==-1) { rq->port=80; }
-  rq->dns_start = microtime();
-  get_connection(rq->cli->cnn,rq->host,rq->port,make_request,rq);
+  try(rq);  
 }
 
