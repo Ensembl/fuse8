@@ -126,7 +126,9 @@ void rq_run_next_write(struct request *rq) {
     rq_reset_sl(rq);
   } else {
     if(rq->p_start) {
-      src_collect_wtime(rq->src,microtime()-rq->p_start);
+      if(rq->src->write) {
+        src_collect_wtime(rq->src,microtime()-rq->p_start);
+      }
       rq->p_start = 0;
     }
     rq_advance_sl(rq);
