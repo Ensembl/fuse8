@@ -87,7 +87,7 @@ static void cf_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_file *cf = (struct cache_file *)priv;
   struct jpf_value *path; 
   struct strbuf lockp;
-  int keep,flags;
+  int keep,flags=0;
 
   keep = jpfv_bool(jpfv_lookup(conf,"keep"));
   if(keep<=0) { flags = O_TRUNC; }
