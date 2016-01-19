@@ -178,7 +178,7 @@ static void push_number(double v,enum style style,void *priv) {
   undent(em,JPF_BEST);
   switch(style) {
   case JPF_INT:
-    jpf_strbuf_add(&(em->buf),"%+d",(int)v);
+    jpf_strbuf_add(&(em->buf),"%+"PRId64,(int64_t)v);
     break;
   default:
     jpf_strbuf_add(&(em->buf),"%+lf",v);
