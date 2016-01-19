@@ -80,7 +80,7 @@ static void done(struct evhttp_request *req,void *priv) {
   int eof;
 
   rq = (struct http_request *)priv;
-  if(!req || !(rand()%10)) {
+  if(!req) {
     error(rq,"Request failed");
     return; 
   }
