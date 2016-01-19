@@ -184,7 +184,7 @@ static void configure_interfaces(struct running *rr,
 // XXX defaults via jcf
 int load_config(struct running *rr,char *path) {
   struct lexer lx;
-  struct jpf_value *raw;
+  struct jpf_value *raw,*val;
   char *errors,*pid;
 
   log_info(("Loading config from '%s'",path));
@@ -200,10 +200,10 @@ int load_config(struct running *rr,char *path) {
   configure_hits(rr,jpfv_lookup(raw,"hits"));
   configure_sources(rr,jpfv_lookup(raw,"sources"));
   configure_interfaces(rr,jpfv_lookup(raw,"interfaces"));
-  raw = jpfv_lookup(raw,"pidfile");
-  if(raw) {
+  val = jpfv_lookup(raw,"pidfile");
+  if(val) {
     pid = make_string("%d",getpid());
-    write_file(raw->v.string,pid);
+    write_file(val->v.string,pid);
     free(pid);
   }
   jpfv_free(raw);
