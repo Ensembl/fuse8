@@ -128,7 +128,7 @@ struct jpf_value * jpfv_lookup(struct jpf_value *v,char *key) {
 // TEST jpfv_int
 int jpfv_int64(struct jpf_value *v,int64_t *out) {
   char *end;
-  int w;
+  int64_t w;
 
   if(!v) { return -2; }
   switch(v->type) {
