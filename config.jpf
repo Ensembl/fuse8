@@ -1,4 +1,4 @@
-pidfile: fuse8.pid
+pidfile: /var/local/log/fuse8/fuse8.pid
 
 logging:
   levels:

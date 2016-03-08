@@ -2,28 +2,30 @@
 
 cd "${0%/*}"
 
+
+PIDFILE=/var/local/log/fuse8/fuse8.pid
 DELAY=5
 KILLDELAY=30
 while true ; do
-  if [ -f fuse8.pid ] ; then
-    PID=`cat fuse8.pid`
+  if [ -f $PIDFILE ] ; then
+    PID=`cat $PIDFILE`
     if [ "x$PID" != "x" ] ; then
       kill -0 $PID >/dev/null 2>&1
       if [ $? -ne 0 ] ; then
         echo "fuse8 process went away without tidying up pid file"
-        rm -f fuse8.pid
+        rm -f $PIDFILE
       fi
     fi
   fi
-  if [ ! -f fuse8.pid ] ; then
+  if [ ! -f $PIDFILE ] ; then
     echo "no fuse8 process found, starting"
     nohup ./fuse8 "$@" >/dev/null 2>&1 &
     sleep $DELAY
   fi
-  while [ ! -f fuse8.pid ] ; do
+  while [ ! -f $PIDFILE ] ; do
     sleep 1
   done
-  PID=`cat fuse8.pid`
+  PID=`cat $PIDFILE`
   while true; do
     ./fuse8-check.sh $PID
     if [ $? -ne 0 ] ; then
