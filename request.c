@@ -41,8 +41,8 @@ static void rq_ref_free(void *data) {
   free(rq);
 }
 
-struct request * rq_create(struct sourcelist *sl,
-                           char *spec,int64_t offset,int64_t length,
+struct request * rq_create(struct sourcelist *sl,char *spec,int64_t version,
+                           int64_t offset,int64_t length,
                            req_fn done,void *priv) {
   struct request *rq;
 
@@ -54,6 +54,7 @@ struct request * rq_create(struct sourcelist *sl,
   ref_on_free(&(rq->r),rq_ref_free,rq);
   rq->sl = sl;
   rq->spec = strdup(spec);
+  rq->version = version;
   rq->out = 0;
   rq->chunks = 0;
   rq->failed_errno = 0;

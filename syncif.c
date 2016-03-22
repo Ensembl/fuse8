@@ -16,7 +16,7 @@ struct irequest {
   struct sourcelist *sl;
   /* used by read */
   char *spec;
-  int64_t offset,length;
+  int64_t version,offset,length;
   req_fn done;
   void *priv;
 };
@@ -27,13 +27,15 @@ struct syncif {
 };
 
 void si_read(struct syncif *si,struct sourcelist *sl,char *spec,
-             int64_t offset,int64_t length,req_fn done,void *priv) {
+             int64_t version,int64_t offset,int64_t length,
+             req_fn done,void *priv) {
   struct irequest *rq;
 
   rq = safe_malloc(sizeof(struct irequest));
   rq->type = I_READ;
   rq->sl = sl;
   rq->spec = spec;
+  rq->version = version;
   rq->offset = offset;
   rq->length = length;
   rq->done = done;
@@ -48,7 +50,8 @@ static void if_consume(void *data,void *priv) {
   log_debug(("if consuming"));
   switch(rq->type) {
   case I_READ:
-    sl_read(rq->sl,rq->spec,rq->offset,rq->length,rq->done,rq->priv);
+    sl_read(rq->sl,rq->spec,rq->version,rq->offset,rq->length,
+            rq->done,rq->priv);
     break;
   }
   free(rq);

@@ -12,7 +12,8 @@ void sl_open(struct sourcelist *sl);
 void sl_add_src(struct sourcelist *sl,struct source *src);
 struct ref * sl_ref(struct sourcelist *sl);
 
-void sl_read(struct sourcelist *sl,char *spec,int64_t offset,int64_t length,
+void sl_read(struct sourcelist *sl,char *spec,
+             int64_t version,int64_t offset,int64_t length,
              req_fn done,void *priv);
 int sl_stat(struct sourcelist *sl,int inode,struct fuse_stat *fs);
 int sl_lookup(struct sourcelist *sl,int inode,

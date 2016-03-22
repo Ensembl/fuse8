@@ -253,7 +253,7 @@ static void fuse_read(fuse_req_t req,fuse_ino_t ino,size_t size,
   fr->size = size;
   fr->uri = strdup(uri);
   ic_acquire(fi->ic);
-  si_read(fi->si,fi->sl,uri,off,size,read_done,fr);
+  si_read(fi->si,fi->sl,uri,stat.version,off,size,read_done,fr);
 }
 // XXX others sl->si
 // XXX si_readlink

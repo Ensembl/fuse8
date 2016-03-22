@@ -138,7 +138,7 @@ static struct hash * cache_hash(struct request *rq,int64_t bk) {
   struct hash *h;
   
   log_debug(("Request offset='%"PRId64"'",bk));
-  key = make_string("%"PRId64":%s",bk,rq->spec);
+  key = make_string("%"PRId64":%"PRId64":%s",bk,rq->version,rq->spec);
   h = make_hash(key);
   free(key);
   return h;
@@ -303,7 +303,7 @@ static void ds_read(struct source *ds,struct request *rq) {
   struct rangei ri;
   int64_t x,y,bk;
 
-  log_debug(("read spec='%s'",rq->spec));
+  log_debug(("read spec='%s' version='%"PRId64"'",rq->spec,rq->version));
   ranges_blockify_expand(&(rq->desired),c->block_size);
   ranges_copy(&blocks,&(rq->desired)); /* Modified during iter = bad */
   ranges_start(&blocks,&ri);

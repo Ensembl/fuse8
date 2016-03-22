@@ -19,6 +19,7 @@ struct fuse_stat {
   uid_t uid;
   gid_t gid;
   off_t size;
+  int64_t version;
 };
 
 struct sourcelist;
@@ -103,7 +104,7 @@ struct request {
   struct source *src;
 
   char *spec,*out;
-  int64_t offset,length;
+  int64_t version,offset,length;
   struct ranges desired;
   int failed_errno;
 

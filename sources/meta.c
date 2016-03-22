@@ -183,13 +183,15 @@ static void add_type(struct metabuild *mb,struct jpf_value *val,
 }
  
 // XXX symlinks
-static void add_file(struct metabuild *mb,struct jpf_value *val) {
+static void add_file(struct metabuild *mb,struct jpf_value *val,
+                     int64_t version) {
   struct fuse_stat *st;
   char *inode,*path,*dir,*file,*dot;
 
   st = safe_malloc(sizeof(struct fuse_stat));
   add_type(mb,val,st,&path);
   set_stat(st,val);
+  st->version = version;
   st->inode = mb->m->inode++;
   path = trim_end(trim_start(path,"/",0),"/",1);
   if(!strcmp("",path)) { st->inode = 1; }
@@ -259,7 +261,7 @@ static void check_ok(struct meta *m) {
 }
 
 static void process_file(struct meta *m,struct source *src,
-                         struct jpf_value *val) {
+                         struct jpf_value *val,int64_t version) {
   struct jpf_value *defaults,*files,*v;
   struct metabuild mb;
   int i;
@@ -283,7 +285,7 @@ static void process_file(struct meta *m,struct source *src,
   files = jpfv_lookup(val,"files");
   if(!files || files->type!=JPFV_ARRAY) { die("No files!"); }
   for(i=0;i<files->v.array.len;i++) {
-    add_file(&mb,files->v.array.v[i]);
+    add_file(&mb,files->v.array.v[i],version);
   }
   resolve_dirs(&mb);
   check_ok(m);
@@ -311,18 +313,28 @@ static void init_meta(struct meta *m) {
   m->lookup = assoc_create(type_free,0,0,0);
 }
 
+static int64_t file_mtime(char *filename) {
+  struct stat st;
+
+  if(stat(filename,&st)<0) { return -1; }
+  return (int64_t)st.st_mtime;
+}
+
 static void load_file(struct meta *m,struct source *src,char *filename) {
   struct lexer lx;
   struct jpf_value *val;
   char *errors;
+  int64_t version;
 
   jpf_lex_filename(&lx,filename);
   errors = jpf_dfparse(&lx,&val);
-  if(errors) {
+  version = file_mtime(filename);
+  if(errors || version==-1) {
     errors = make_string("Errors reading '%s':\n%s",filename,errors);
     die(errors);
   }
-  process_file(m,src,val);
+  log_debug(("index file has mtime %"PRId64"\n",version));
+  process_file(m,src,val,version);
   jpfv_free(val);
 }
 

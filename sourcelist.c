@@ -95,11 +95,11 @@ void sl_stat_time(struct sourcelist *sl,int64_t rtime) {
             sl->n_hits,sl->bytes,sl->time));
 }
 
-void sl_read(struct sourcelist *sl,char *spec,int64_t offset,
-             int64_t length,req_fn done,void *priv) {
+void sl_read(struct sourcelist *sl,char *spec,int64_t version,
+             int64_t offset,int64_t length,req_fn done,void *priv) {
   struct request *rq;
 
-  rq = rq_create(sl,spec,offset,length,done,priv);
+  rq = rq_create(sl,spec,version,offset,length,done,priv);
   sl->n_hits++;
   sl->bytes += length;
   rq_run(rq);

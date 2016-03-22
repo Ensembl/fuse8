@@ -3,8 +3,9 @@
 
 #include "types.h"
 
-struct request * rq_create(struct sourcelist *sl,
-                           char *spec,int64_t offset,int64_t length,req_fn done,void *priv);
+struct request * rq_create(struct sourcelist *sl,char *spec,int64_t version,
+                           int64_t offset,int64_t length,
+                           req_fn done,void *priv);
 void rq_acquire(struct request *rq);
 void rq_release(struct request *rq);
 void rq_run(struct request *rq);
