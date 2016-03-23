@@ -6,6 +6,7 @@
 #include "util/path.h"
 #include "util/logging.h"
 #include "running.h"
+#include "version.h"
 
 CONFIG_LOGGING(main);
 
@@ -28,11 +29,15 @@ int main(int argc,char **argv) {
   int c;
   char *conf_file = 0,**dir,**fn,*self,*rdir;
 
-  while((c = getopt(argc,argv,"c:"))!=-1) {
+  while((c = getopt(argc,argv,"c:v"))!=-1) {
     switch(c) {
     case 'c':
       conf_file = optarg; 
       break;
+    case 'v':
+      fprintf(stderr,"fuse8\ngit: %s\ndate: %s\nmachine: %s\nuser: %s\n",
+              version_git,version_date,version_machine,version_user);
+      return 0;
     case '?':
       if(optopt == 'c') {
         fprintf(stderr,"Option -%c requires an argument.\n",optopt);

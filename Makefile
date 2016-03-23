@@ -24,11 +24,14 @@ $(MAIN): $(OBJS)
 %.o: %.c %.d
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-%.d : %.c
+%.d : %.c version.h
 	$(CC) $(CFLAGS) -MM -MF"$@" -MT"$@" "$<"
 
 jpf/%.yy.c: jpf/%.l
 	cd jpf; flex ../$<
+
+version.h: version.h.tmpl
+	perl -pe 's/@(.*?)@/$$x=qx($$1); chomp $$x; $$x/e' <version.h.tmpl >version.h
 
 clean:
 	$(RM) $(OBJS) $(OBJS:.o=.d) jpf/jpflex.yy.c *~ $(MAIN)
