@@ -115,7 +115,7 @@ int src_path_ok(struct source *src,char *path) {
   return failures_check(src->fails,path);
 }
 
-int src_set_failed(struct source *src,char *path) {
+void src_set_failed(struct source *src,char *path) {
   if(!src->fails) { return; }
   failures_fail(src->fails,path);
 }

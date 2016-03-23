@@ -60,7 +60,6 @@ static void reset_bell(struct evdata *ed) {
 static void consume(evutil_socket_t fd,short what,void *arg) {
   struct evdata *ed = (struct evdata *)arg;
   struct array *ev;
-  void *data;
   int i;
 
   log_debug(("waiting for consumables"));

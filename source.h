@@ -32,7 +32,7 @@ void src_set_fails(struct source *src,struct event_base *eb,
                    int64_t timeout);
 
 int src_path_ok(struct source *src,char *path);
-int src_set_failed(struct source *src,char *path);
+void src_set_failed(struct source *src,char *path);
 char * src_type(struct source *src);
 
 #endif

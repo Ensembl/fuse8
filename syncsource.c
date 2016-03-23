@@ -78,8 +78,6 @@ static void * worker(void *data) {
 }
 
 static int result(struct syncqueue *q,struct member *job) {
-  struct source *src;
-
   log_debug(("processing response type A%d",job->type.a));
   switch(job->type.a) {
   case A_QUIT:
@@ -97,7 +95,6 @@ static int result(struct syncqueue *q,struct member *job) {
     rq_release(job->rq);
     break;
   case A_CLOSE:
-    src = job->src->src;
     src_release(job->src->src);
     free(job->src);
     job->src = 0;
