@@ -10,4 +10,4 @@ jpf/jpflex.yy.c
 fuse8
 *.log
 *.pid
-version.h
+version.c
