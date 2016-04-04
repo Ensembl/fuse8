@@ -1,3 +1,4 @@
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -27,31 +28,68 @@ static void configure_logging_levels(struct jpf_value *raw) {
   }
 }
 
+struct log_dest {
+  int fd;
+  char *filename;
+};
+
 // XXX proper error handling
-static int extract_fd(struct jpf_value *raw,int flags) {
+static struct log_dest * create_log_dest(struct jpf_value *raw) {
+  struct log_dest *out;
   struct jpf_value *v;
   int fd;
 
+  out = safe_malloc(sizeof(struct log_dest));
+  out->fd = -1;
+  out->filename = 0;
   v = jpfv_lookup(raw,"fd");
   if(v) {
-    if(jpfv_int(v,&fd)) { return -1; }
-    return fd;
+    if(jpfv_int(v,&fd)) { goto error; }
+    out->fd = fd;
+    return out;
   }
   v = jpfv_lookup(raw,"filename");
   if(v) {
-    fd = open(v->v.string,flags,0666);
-    if(fd==-1) {
-      log_error(("Cannot open '%s'",v->v.string));
-      return -1;
-    }
-    log_debug(("File '%s' fd is %d",v->v.string,fd));
-    return fd;
+    out->filename = strdup(v->v.string);
+    return out;
   }
   log_error(("Missing filename/fd spec"));
+  /* fallthrough */
+error:
+  free(out);
+  return 0;
+}
+
+static void free_log_dest(struct log_dest *ld) {
+  if(!ld) { return; }
+  if(ld->filename) { free(ld->filename); }
+  free(ld);
+}
+
+static int open_log_dest(struct log_dest *ld) {
+  int fd;
+
+  if(!ld) { goto error; }
+  if(ld->fd!=-1) {
+    return ld->fd;
+  }
+  if(ld->filename) {
+    fd = open(ld->filename,O_WRONLY|O_APPEND|O_CREAT,0666);
+    if(fd==-1) {
+      log_error(("Cannot open '%s'",ld->filename));
+      goto error;
+    }
+    log_debug(("File '%s' fd is %d",ld->filename,fd));
+    return fd;
+  }
+  /* fallthrough */
+error:
+  log_error(("Cannot open log file"));
   return -1;
 }
 
 static void configure_logging_dest(struct jpf_value *raw) {
+  struct log_dest *ld;
   int fd;
 
   if(!raw) {
@@ -60,7 +98,9 @@ static void configure_logging_dest(struct jpf_value *raw) {
     logging_fd(2);
     return;
   }
-  fd = extract_fd(raw,O_WRONLY|O_APPEND|O_CREAT);
+  ld = create_log_dest(raw);
+  fd = open_log_dest(ld);
+  free_log_dest(ld);
   if(fd==-1) { goto error; }
   logging_fd(fd);
   return;
@@ -76,12 +116,16 @@ static void configure_logging(struct jpf_value *raw) {
   configure_logging_dest(jpfv_lookup(raw,"dest"));
 }
 
+// XXX if log cannot be opened?
 static void configure_stats(struct running *rr,struct jpf_value *raw) {
+  struct log_dest *ld;
   int val;
 
   if(!raw) { return; }
   log_debug(("configuring stats"));
-  rr->stats_fd = extract_fd(raw,O_WRONLY|O_APPEND|O_CREAT);
+  ld = create_log_dest(raw);
+  rr->stats_fd = open_log_dest(ld);
+  free_log_dest(ld);
   rr->stat_timer_interval.tv_usec = 0;
   switch(jpfv_int(jpfv_lookup(raw,"interval"),&val)) {
   case -2:
@@ -97,11 +141,14 @@ static void configure_stats(struct running *rr,struct jpf_value *raw) {
 }
 
 static void configure_hits(struct running *rr,struct jpf_value *raw) {
+  struct log_dest *ld;
   int fd,val;
 
   if(!raw) { return; }
   log_debug(("configuring hits log"));
-  fd = extract_fd(raw,O_WRONLY|O_APPEND|O_CREAT);
+  ld = create_log_dest(raw);
+  fd = open_log_dest(ld);
+  free_log_dest(ld);
   switch(jpfv_int(jpfv_lookup(raw,"interval"),&val)) {
   case -2: val = 60; break;
   case -1: die("Bad interval"); break;
