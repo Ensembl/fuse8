@@ -9,5 +9,6 @@ struct hits;
 struct hits * hits_new(struct event_base *eb,int fd,uint64_t interval);
 void hits_free(struct hits *h);
 void hit_add(struct hits *hh,char *uri,char *source,int64_t bytes);
+void hits_reset_fd(struct hits *hh,int fd);
 
 #endif

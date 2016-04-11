@@ -33,6 +33,7 @@ enum log_level log_get_level_by_name(char *name);
 void log_set_level(char *type,enum log_level level);
 void logging_fd(int fd);
 void logging_done(void);
+int get_logging_fd(void);
 
 /* Use the macros instead of these two, or weird stuff will happen to you */
 void log_message(char *type,enum log_level *file_level,

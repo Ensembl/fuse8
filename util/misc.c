@@ -152,6 +152,7 @@ char * gcwd(void) {
   return out;
 }
 
+/* This function needs to die */
 char * strdupcatnfree(char *a,...) {
   char *out,*b;
   int n;
@@ -484,4 +485,28 @@ void fsync_async(int fd,void (*cb)(void *),void *priv) {
   pthread_attr_setdetachstate(&thread_attr,PTHREAD_CREATE_DETACHED);
   pthread_create(&thread,&thread_attr,fsync_async_thread,fad);
   pthread_attr_destroy(&thread_attr); 
+}
+
+void dirbasename(char *filename,char **dir,char **base) {
+  char *p;
+
+  p = strrchr(filename,'/');
+  if(p) {
+    if(dir) { *dir = strndup(filename,p-filename); }
+    if(base) { *base = strdup(p+1); }
+  } else {
+    if(dir) { *dir = strdup("."); }
+    if(base) { *base = strdup(filename); }
+  }
+}
+
+int only_create(char *filename) {
+  int fd;
+
+  fd = open(filename,O_WRONLY|O_CREAT|O_EXCL);
+  if(fd!=-1) {
+    close(fd);
+    return 0;
+  }
+  return errno;
 }

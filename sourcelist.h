@@ -27,6 +27,7 @@ void sl_acquire_weak(struct sourcelist *sl);
 void sl_release_weak(struct sourcelist *sl);
 struct source * sl_get_root(struct sourcelist *sl);
 void sl_stat_time(struct sourcelist *sl,int64_t rtime);
+struct hits * sl_get_hits(struct sourcelist *sl);
 void sl_set_hits(struct sourcelist *sl,struct hits *hits);
 void sl_record_hit(struct sourcelist *sl,char *uri,char *source,
                    int64_t bytes);

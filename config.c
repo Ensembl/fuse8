@@ -2,16 +2,27 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include "hits.h"
 #include "interface.h"
 #include "source.h"
 #include "running.h"
+#include "config.h"
 #include "util/logging.h"
+#include "util/rotate.h"
 #include "util/assoc.h"
 #include "jpf/jpf.h"
 
 CONFIG_LOGGING(config)
+
+// XXX should probably not live here
+struct log_dest {
+  int fd;
+  char *filename;
+};
+
+static struct log_dest *main_log=0,*requests_log=0,*stats_log=0;
 
 static void configure_logging_levels(struct jpf_value *raw) {
   enum log_level level;
@@ -27,11 +38,6 @@ static void configure_logging_levels(struct jpf_value *raw) {
     log_set_level(raw->v.assoc.k[i],level);
   }
 }
-
-struct log_dest {
-  int fd;
-  char *filename;
-};
 
 // XXX proper error handling
 static struct log_dest * create_log_dest(struct jpf_value *raw) {
@@ -88,8 +94,36 @@ error:
   return -1;
 }
 
+static int rotate_log_dest(struct log_dest *ld) {
+  if(!ld->filename) {
+    log_warn(("Cannot rotate output to file descriptor"));
+    return -1;
+  }
+  if(ld->fd!=-1) {
+    if(close(ld->fd)) {
+      log_error(("Close of fd=%d failed during log rotation, errno=%d",
+                ld->fd,errno));
+    }
+  }
+  ld->fd=-1;
+  if(rotate_log(ld->filename)) {
+    log_error(("Could not rotate log file '%s'",ld->filename));
+  }
+  return open_log_dest(ld);
+}
+
+void rotate_logs(struct running *rr) {
+  struct hits *h;
+  int fd;
+
+  h = sl_get_hits(rr->sl);
+  if(h && requests_log) {
+    fd = rotate_log_dest(requests_log);
+    hits_reset_fd(h,fd); 
+  }
+}
+
 static void configure_logging_dest(struct jpf_value *raw) {
-  struct log_dest *ld;
   int fd;
 
   if(!raw) {
@@ -98,9 +132,8 @@ static void configure_logging_dest(struct jpf_value *raw) {
     logging_fd(2);
     return;
   }
-  ld = create_log_dest(raw);
-  fd = open_log_dest(ld);
-  free_log_dest(ld);
+  main_log = create_log_dest(raw);
+  fd = open_log_dest(main_log);
   if(fd==-1) { goto error; }
   logging_fd(fd);
   return;
@@ -118,14 +151,12 @@ static void configure_logging(struct jpf_value *raw) {
 
 // XXX if log cannot be opened?
 static void configure_stats(struct running *rr,struct jpf_value *raw) {
-  struct log_dest *ld;
   int val;
 
   if(!raw) { return; }
   log_debug(("configuring stats"));
-  ld = create_log_dest(raw);
-  rr->stats_fd = open_log_dest(ld);
-  free_log_dest(ld);
+  stats_log = create_log_dest(raw);
+  rr->stats_fd = open_log_dest(stats_log);
   rr->stat_timer_interval.tv_usec = 0;
   switch(jpfv_int(jpfv_lookup(raw,"interval"),&val)) {
   case -2:
@@ -141,14 +172,12 @@ static void configure_stats(struct running *rr,struct jpf_value *raw) {
 }
 
 static void configure_hits(struct running *rr,struct jpf_value *raw) {
-  struct log_dest *ld;
   int fd,val;
 
   if(!raw) { return; }
   log_debug(("configuring hits log"));
-  ld = create_log_dest(raw);
-  fd = open_log_dest(ld);
-  free_log_dest(ld);
+  requests_log = create_log_dest(raw);
+  fd = open_log_dest(requests_log);
   switch(jpfv_int(jpfv_lookup(raw,"interval"),&val)) {
   case -2: val = 60; break;
   case -1: die("Bad interval"); break;
@@ -240,6 +269,7 @@ int load_config(struct running *rr,char *path) {
   if(errors) {
     log_error(("Could not parse config:\n%s",errors));
     free(errors);
+    config_finished();
     return 1;
   }
   configure_logging(jpfv_lookup(raw,"logging"));
@@ -255,4 +285,13 @@ int load_config(struct running *rr,char *path) {
   }
   jpfv_free(raw);
   return 0;
+}
+
+void config_finished(void) {
+  free_log_dest(stats_log);
+  free_log_dest(requests_log);
+  free_log_dest(main_log);
+  stats_log = 0;
+  requests_log = 0;
+  main_log = 0;
 }

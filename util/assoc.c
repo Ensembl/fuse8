@@ -177,3 +177,5 @@ int associ_next(struct assoc_iter *e) {
 
 char * associ_key(struct assoc_iter *e) { return e->a->e[e->i].k; }
 void * associ_value(struct assoc_iter *e) { return e->a->e[e->i].v; }
+
+int assoc_len(struct assoc *a) { return a->n; }

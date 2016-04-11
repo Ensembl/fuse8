@@ -105,6 +105,12 @@ static void user_quit(evutil_socket_t fd,short what,void *arg) {
   event_add(rr->sigkill_timer,&sigkill_delay);
 }
 
+static void hupev(evutil_socket_t fd,short what,void *arg) {
+  struct running *rr = (struct running *)arg;
+
+  rotate_logs(rr);
+}
+
 static void interfaces_quit(void *arg) {
   struct running *rr = (struct running *)arg;
   struct array *icc;
@@ -211,7 +217,7 @@ void closedown(struct running *rr) {
 
 void run(char *conf_file) {
   struct running rr;
-  struct event *sig1_ev,*sig2_ev;
+  struct event *sig1_ev,*sig2_ev,*sig_hup;
 
   evthread_use_pthreads();
   setup_running(&rr);
@@ -227,14 +233,18 @@ void run(char *conf_file) {
   sq_release(rr.sq);
   evsignal_add(sig1_ev=evsignal_new(rr.eb,SIGINT,user_quit,&rr),0);
   evsignal_add(sig2_ev=evsignal_new(rr.eb,SIGTERM,user_quit,&rr),0);
+  evsignal_add(sig_hup=evsignal_new(rr.eb,SIGHUP,hupev,&rr),0);
   rr.sigkill_timer = event_new(rr.eb,-1,EV_PERSIST,sigkill_self,&rr);
   log_info(("Starting event loop"));
   event_base_loop(rr.eb,0);
   log_info(("Event loop finished"));
   event_del(sig1_ev);
   event_del(sig2_ev);
+  event_del(sig_hup);
   event_free(sig1_ev);
   event_free(sig2_ev);
+  event_free(sig_hup);
   closedown(&rr);
   log_info(("Bye!"));
+  config_finished();
 }

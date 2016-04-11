@@ -157,3 +157,5 @@ void log_message(char *type,enum log_level *file_level,
   send(type,msg_level,text);
   free(text);
 }
+
+int get_logging_fd(void) { return log_fd; }

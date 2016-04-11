@@ -147,6 +147,10 @@ void sl_set_hits(struct sourcelist *sl,struct hits *hits) {
   sl->hits = hits;
 }
 
+struct hits * sl_get_hits(struct sourcelist *sl) {
+  return sl->hits;
+}
+
 void sl_record_hit(struct sourcelist *sl,char *uri,char *source,
                    int64_t bytes) {
   if(!sl->hits) { return; }

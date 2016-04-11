@@ -21,5 +21,6 @@ void associ_start(struct assoc *a,struct assoc_iter *e);
 int associ_next(struct assoc_iter *e);
 char * associ_key(struct assoc_iter *);
 void * associ_value(struct assoc_iter *);
+int assoc_len(struct assoc *a);
 
 #endif

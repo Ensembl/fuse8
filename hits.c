@@ -115,3 +115,6 @@ void hit_add(struct hits *hh,char *uri,char *source,int64_t bytes) {
   assoc_set(h->sources,source,source);
 }
 
+void hits_reset_fd(struct hits *hh,int fd) {
+  hh->fd = fd;
+}

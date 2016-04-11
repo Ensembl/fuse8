@@ -92,5 +92,7 @@ void type_free(void *target,void *priv);
 
 int lock_path(char *path);
 int unlock_path(char *path);
+void dirbasename(char *filename,char **dir,char **base);
+int only_create(char *filename);
 
 #endif
