@@ -488,16 +488,27 @@ void fsync_async(int fd,void (*cb)(void *),void *priv) {
 }
 
 void dirbasename(char *filename,char **dir,char **base) {
-  char *p;
+  char *p,*all;
 
-  p = strrchr(filename,'/');
+  /* null or empty string */
+  if(!filename || !*filename) {
+    if(dir) { *dir = strdup("."); }
+    if(base) { *base = strdup("."); }
+    return;
+  }
+  all = strdup(filename);
+  if(*(all+strlen(all)-1) == '/') {
+    *(all+strlen(all)-1) = '\0';
+  }
+  p = strrchr(all,'/');
   if(p) {
-    if(dir) { *dir = strndup(filename,p-filename); }
+    if(dir) { *dir = strndup(all,p-all); }
     if(base) { *base = strdup(p+1); }
   } else {
     if(dir) { *dir = strdup("."); }
-    if(base) { *base = strdup(filename); }
+    if(base) { *base = strdup(all); }
   }
+  free(all);
 }
 
 int only_create(char *filename) {
