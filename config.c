@@ -97,7 +97,7 @@ error:
 static int rotate_log_dest(struct running *rr,struct log_dest *ld) {
   if(!ld->filename) {
     log_warn(("Cannot rotate output to file descriptor"));
-    return -1;
+    return ld->fd;
   }
   if(ld->fd!=-1) {
     if(close(ld->fd)) {
@@ -121,7 +121,12 @@ void rotate_logs(struct running *rr) {
     fd = rotate_log_dest(rr,requests_log);
     hits_reset_fd(h,fd); 
   }
-  rr->stats_fd = rotate_log_dest(rr,stats_log);
+  if(stats_log) {
+    rr->stats_fd = rotate_log_dest(rr,stats_log);
+  }
+  if(main_log) {
+    logging_fd(rotate_log_dest(rr,main_log));
+  }
 }
 
 static void configure_logging_dest(struct jpf_value *raw) {
