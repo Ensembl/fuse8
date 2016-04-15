@@ -18,8 +18,14 @@ int64_t microtime(void);
 void die(const char *str) __attribute__ ((__noreturn__));
 char * gcwd(void);
 
+#define TOSTRINGI(x) #x
+#define TOSTRING(x) TOSTRINGI(x)
+#define end() die(__FILE__ TOSTRING(__LINE__))
+
 void * safe_malloc(size_t s);
 void * safe_realloc(void *p,size_t s);
+int * make_int(int in);
+int sort_int(int *a,int *b,void *c);
 char * make_string(const char *fmt,...)
   __attribute__ ((__format__ (__printf__,1,2)));
 char * make_string_v(const char *fmt,va_list ap)
@@ -39,8 +45,8 @@ void fsync_async(int fd,void (*cb)(void *),void *);
 #endif
 
 char * iso_localtime(time_t t);
-int write_all(int fd,char *buf,size_t count);
-int read_all(int fd,char *buf,size_t count);
+int write_all(int fd,void *buf,size_t count);
+int read_all(int fd,void *buf,size_t count);
 int read_file(char *filename,char **out);
 int write_file(char *filename,char *out);
 
@@ -94,5 +100,7 @@ int lock_path(char *path);
 int unlock_path(char *path);
 void dirbasename(char *filename,char **dir,char **base);
 int only_create(char *filename);
+
+int make_random(unsigned char *dest,int len);
 
 #endif

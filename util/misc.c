@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -50,6 +51,20 @@ void * safe_realloc(void *p,size_t s) {
   out = realloc(p,s);
   alloc_chk(out);
   return out;
+}
+
+int * make_int(int in) {
+  int *out;
+
+  out = safe_malloc(sizeof(int));
+  *out = in;
+  return out;
+}
+
+int sort_int(int *a,int *b,void *c) {
+  if(*a<*b) { return -1; }
+  if(*b>*a) { return 1; }
+  return 0;
 }
 
 char * make_string(const char *fmt,...) {
@@ -254,7 +269,8 @@ char * iso_localtime(time_t t) {
     return out;
 }
 
-int write_all(int fd,char *buf,size_t count) {
+int write_all(int fd,void *b,size_t count) {
+  unsigned char *buf = (unsigned char *)b;
   int r,n;
 
   for(n=0;count && n<1000;) {
@@ -272,7 +288,8 @@ int write_all(int fd,char *buf,size_t count) {
 }
 
 // XXX not int!
-int read_all(int fd,char *buf,size_t count) {
+int read_all(int fd,void *b,size_t count) {
+  unsigned char *buf = (unsigned char *)b;
   int t=0,r,n;
 
   for(n=0;count && n<1000;) {
@@ -287,7 +304,7 @@ int read_all(int fd,char *buf,size_t count) {
     count -= r;
     t += r;
   }
-  return 0;
+  return t;
 }
 
 #define GULP 1024
@@ -514,10 +531,14 @@ void dirbasename(char *filename,char **dir,char **base) {
 int only_create(char *filename) {
   int fd;
 
-  fd = open(filename,O_WRONLY|O_CREAT|O_EXCL);
+  fd = open(filename,O_WRONLY|O_CREAT|O_EXCL,0666);
   if(fd!=-1) {
     close(fd);
     return 0;
   }
   return errno;
+}
+
+int make_random(unsigned char *dest,int len) {
+  return !RAND_bytes(dest,len);
 }
