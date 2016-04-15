@@ -71,10 +71,12 @@ static void * worker(void *data) {
 
   while(1) {
     m = wqueue_get_work(sq->qu);
-    if(!m) { log_debug(("Worker done")); return 0; }
+    if(wqueue_should_quit(sq->qu)) { break; }
+    if(!m) { log_debug(("Unexpected flag")); continue; }
     job(sq,m);
     free(m);
   }
+  return 0;
 }
 
 static int result(struct syncqueue *q,struct member *job) {

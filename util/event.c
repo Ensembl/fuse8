@@ -120,15 +120,20 @@ struct wqueue {
   pthread_mutex_t mutex;
   pthread_cond_t cond;
   struct queue *queue;
-  int quit;
+  int quit,flags,flags_changed;
 };
 
 static void wq_release(void *data) {
   struct wqueue *wq = (struct wqueue *)data;
 
   log_debug(("work queue released"));
+  wqueue_quit(wq,1);
+}
+
+void wqueue_quit(struct wqueue *wq,int val) {
+  log_debug(("work queue quit"));
   pthread_mutex_lock(&(wq->mutex));
-  wq->quit = 1;
+  wq->quit = !!val;
   pthread_cond_broadcast(&(wq->cond));
   pthread_mutex_unlock(&(wq->mutex));
 }
@@ -143,13 +148,18 @@ static void wq_free(void *data) {
   free(wq);
 }
 
-
 void * wqueue_get_work(struct wqueue *wq) {
   void *out;
 
   pthread_mutex_lock(&(wq->mutex));
+  if(wq->flags_changed) {
+    wq->flags_changed = 0;
+    pthread_mutex_unlock(&(wq->mutex));
+    return 0;
+  }
   while(!queue_length(wq->queue)) {
-    if(wq->quit) {
+    if(wq->flags_changed || wq->quit) {
+      wq->flags_changed = 0;
       pthread_mutex_unlock(&(wq->mutex));
       return 0;
     }
@@ -163,12 +173,23 @@ void * wqueue_get_work(struct wqueue *wq) {
   return out;
 }
 
+int wqueue_should_quit(struct wqueue *wq) {
+  int out;
+
+  pthread_mutex_lock(&(wq->mutex));
+  out = (!queue_length(wq->queue) && wq->quit);
+  pthread_mutex_unlock(&(wq->mutex));
+  return out;
+}
+
 void wqueue_send_work(struct wqueue *wq,void *work) {
   pthread_mutex_lock(&(wq->mutex));
-  if(!queue_length(wq->queue)) {
-    pthread_cond_signal(&(wq->cond));
+  if(!wq->quit) {
+    if(!queue_length(wq->queue)) {
+      pthread_cond_signal(&(wq->cond));
+    }
+    queue_add(wq->queue,work);
   }
-  queue_add(wq->queue,work);
   pthread_mutex_unlock(&(wq->mutex));
 }
 
@@ -182,8 +203,26 @@ struct wqueue * wqueue_create(void) {
   pthread_mutex_init(&(wq->mutex),0);
   pthread_cond_init(&(wq->cond),0);
   wq->queue = queue_create(0,0);
-  wq->quit = 0;
+  wq->quit = wq->flags = wq->flags_changed = 0;
   return wq;
+}
+
+void wqueue_set_flags(struct wqueue *wq,int set,int reset) {
+  pthread_mutex_lock(&(wq->mutex));
+  wq->flags |= set;
+  wq->flags &=~ reset;
+  wq->flags_changed = 1;
+  pthread_cond_broadcast(&(wq->cond));
+  pthread_mutex_unlock(&(wq->mutex));
+}
+
+int wqueue_get_flags(struct wqueue *wq,int mask) {
+  int out;
+
+  pthread_mutex_lock(&(wq->mutex));
+  out = wq->flags & mask;
+  pthread_mutex_unlock(&(wq->mutex));
+  return out;
 }
 
 void wqueue_release(struct wqueue *wq) { ref_release(&(wq->r)); }
