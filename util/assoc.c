@@ -97,7 +97,7 @@ struct ref * assoc_ref(struct assoc *a) { return &(a->r); }
 void assoc_acquire(struct assoc *a) { ref_acquire(&(a->r)); }
 void assoc_release(struct assoc *a) { ref_release(&(a->r)); }
 
-struct assoc_el * assoc_find(struct assoc *a,char *k) {
+struct assoc_el * assoc_find(struct assoc *a,const char *k) {
   uint32_t h;
 
   if(!k) { return 0; }
@@ -110,7 +110,7 @@ struct assoc_el * assoc_find(struct assoc *a,char *k) {
   return 0;
 }
 
-void * assoc_lookup(struct assoc *a,char *k) {
+void * assoc_lookup(struct assoc *a,const char *k) {
   struct assoc_el *e;
 
   e = assoc_find(a,k);

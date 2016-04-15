@@ -16,7 +16,7 @@ struct ref * assoc_ref(struct assoc *a);
 void assoc_acquire(struct assoc *a);
 void assoc_release(struct assoc *a);
 void assoc_set(struct assoc *a,char *k,void *v);
-void * assoc_lookup(struct assoc *a,char *k);
+void * assoc_lookup(struct assoc *a,const char *k);
 void associ_start(struct assoc *a,struct assoc_iter *e);
 int associ_next(struct assoc_iter *e);
 char * associ_key(struct assoc_iter *);
