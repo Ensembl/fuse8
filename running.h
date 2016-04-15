@@ -31,6 +31,7 @@ struct running {
   struct sourcelist *sl;
   struct syncqueue *sq;
   struct syncif *si;
+  struct rotator *rot;
   struct array *icc;
   struct array *src;
   struct ref need_loop;

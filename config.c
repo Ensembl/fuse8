@@ -94,7 +94,7 @@ error:
   return -1;
 }
 
-static int rotate_log_dest(struct log_dest *ld) {
+static int rotate_log_dest(struct running *rr,struct log_dest *ld) {
   if(!ld->filename) {
     log_warn(("Cannot rotate output to file descriptor"));
     return -1;
@@ -106,7 +106,7 @@ static int rotate_log_dest(struct log_dest *ld) {
     }
   }
   ld->fd=-1;
-  if(rotate_log(ld->filename)) {
+  if(rotate_log(rr->rot,ld->filename)) {
     log_error(("Could not rotate log file '%s'",ld->filename));
   }
   return open_log_dest(ld);
@@ -118,7 +118,7 @@ void rotate_logs(struct running *rr) {
 
   h = sl_get_hits(rr->sl);
   if(h && requests_log) {
-    fd = rotate_log_dest(requests_log);
+    fd = rotate_log_dest(rr,requests_log);
     hits_reset_fd(h,fd); 
   }
 }
@@ -142,11 +142,22 @@ static void configure_logging_dest(struct jpf_value *raw) {
     logging_fd(2);
 }
 
-static void configure_logging(struct jpf_value *raw) {
+static void configure_logging(struct running *rr,struct jpf_value *raw) {
+  struct jpf_value *v;
+  int age;
+
   if(!raw) { log_debug(("No logging section")); return; }
   log_debug(("Configuring logging"));
   configure_logging_levels(jpfv_lookup(raw,"levels"));
   configure_logging_dest(jpfv_lookup(raw,"dest"));
+  v = jpfv_lookup(raw,"max-old");
+  if(v) {
+    if(!jpfv_int(v,&age)) {
+      rotator_max_old(rr->rot,age);
+    } else {
+      log_error(("Bad max-old: ignoring"));
+    }
+  }
 }
 
 // XXX if log cannot be opened?
@@ -272,7 +283,7 @@ int load_config(struct running *rr,char *path) {
     config_finished();
     return 1;
   }
-  configure_logging(jpfv_lookup(raw,"logging"));
+  configure_logging(rr,jpfv_lookup(raw,"logging"));
   configure_stats(rr,jpfv_lookup(raw,"stats"));
   configure_hits(rr,jpfv_lookup(raw,"hits"));
   configure_sources(rr,jpfv_lookup(raw,"sources"));

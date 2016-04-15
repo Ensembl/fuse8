@@ -14,6 +14,7 @@
 #include "util/assoc.h"
 #include "util/path.h"
 #include "util/logging.h"
+#include "util/rotate.h"
 #include "sourcelist.h"
 #include "syncsource.h"
 #include "syncif.h"
@@ -151,6 +152,7 @@ void setup_running(struct running *rr) {
   rr->src = array_create(0,0);
   rr->src_shop = assoc_create(0,0,0,0);
   rr->ic_shop = assoc_create(0,0,0,0);
+  rr->rot = rotator_create();
   ref_create(&(rr->need_loop));
   ref_create(&(rr->ic_running));
   /* Need to process syncqueue closing events before exiting mainloop */
@@ -202,6 +204,8 @@ void start_stats_timer(struct running *rr) {
 }
 
 void closedown(struct running *rr) {
+  log_debug(("closedown"));
+  rotator_release(rr->rot);
   array_release(rr->src);
   array_release(rr->icc);
   assoc_release(rr->src_shop);
