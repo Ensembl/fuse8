@@ -1,3 +1,6 @@
+#define _GNU_SOURCE /* For qsort_r */
+#include <stdlib.h>
+
 #include "misc.h"
 #include "array.h"
 
@@ -95,4 +98,9 @@ int array_remove(struct array *a) {
 
 int array_remove_nf(struct array *a) {
   return array_remove_i(a,0);
+}
+
+void array_sort(struct array *a,compare_fn cmp,void *payload) {
+  qsort_r(a->e,a->n,sizeof(void *),cmp,payload);
+
 }

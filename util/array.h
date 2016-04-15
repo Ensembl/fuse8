@@ -18,4 +18,8 @@ int array_set_nf(struct array *a,int idx,void *v);
 int array_remove(struct array *a);
 int array_remove_nf(struct array *a);
 
+
+typedef int (* compare_fn)(const void *,const void *,void *);
+void array_sort(struct array *a,compare_fn cmp,void *data);
+
 #endif
