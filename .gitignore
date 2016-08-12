@@ -1,7 +1,7 @@
 *.swp
 jtl
 83.jpf
-config-live.jpf
+*.jpf
 test
 *.o
 *.d
@@ -9,5 +9,6 @@ jpf/jpflex.yy.c
 *.dat
 fuse8
 *.log
+*.log.*
 *.pid
 version.c
