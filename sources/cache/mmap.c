@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,9 +71,11 @@ static void cm_open(struct cache *c,struct jpf_value *conf,void *priv) {
   cm->fd = open(path->v.string,O_CREAT|O_RDWR|O_TRUNC,0666);
   if(cm->fd<0) { die("Cannot create/open cache file"); }
   if(ftruncate(cm->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
-  if(fallocate(cm->fd,0,0,FILESIZE(c))<0) {
+  log_info(("allocating cache file. Will be slow on old filesystem types"));
+  if(posix_fallocate(cm->fd,0,FILESIZE(c))<0) {
     die("Cannot fallocate space for cache file");
   }
+  log_info(("cache file allocated"));
   cm->data = mmap(0,FILESIZE(c),PROT_READ|PROT_WRITE,MAP_SHARED,cm->fd,0);
   log_debug(("mmap %s at %p-%p",
              path->v.string,cm->data,cm->data+FILESIZE(c)));
