@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <errno.h>
 #include <event2/event.h>
 
 #include "cache.h"
@@ -64,7 +65,8 @@ static void read_done(char *data,void *priv) {}
 
 static void cm_open(struct cache *c,struct jpf_value *conf,void *priv) {
   struct cache_mmap *cm = (struct cache_mmap *)priv;
-  struct jpf_value *path; 
+  struct jpf_value *path;
+  int r;
  
   path = jpfv_lookup(conf,"filename");
   if(!path) { die("No path to cachefile specified"); }
@@ -72,7 +74,8 @@ static void cm_open(struct cache *c,struct jpf_value *conf,void *priv) {
   if(cm->fd<0) { die("Cannot create/open cache file"); }
   if(ftruncate(cm->fd,FILESIZE(c))<0) { die("Cannot extend cache file"); }
   log_info(("allocating cache file. Will be slow on old filesystem types"));
-  if(posix_fallocate(cm->fd,0,FILESIZE(c))<0) {
+  if((r=posix_fallocate(cm->fd,0,FILESIZE(c)))) {
+    errno = r;
     die("Cannot fallocate space for cache file");
   }
   log_info(("cache file allocated"));
