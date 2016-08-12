@@ -44,7 +44,8 @@ static void file_close(struct file *c) {
 
 #define MAXPATHDEPTH 1000
 
-static int track_path(char *path,char *dir) {
+static int track_path_main(char *path,char *dir) {
+  dev_t root_dev,path_dev;
   ino_t root_ino,path_ino;
   struct stat st;
   int i;
@@ -52,16 +53,32 @@ static int track_path(char *path,char *dir) {
   dir = strdup(dir);
   if(stat("/",&st)<0) { free(dir); return 0; }
   root_ino = st.st_ino;
+  root_dev = st.st_dev;
   if(stat(path,&st)<0) { free(dir); return 0; }
   path_ino = st.st_ino;
+  path_dev = st.st_dev;
   for(i=0;i<MAXPATHDEPTH;i++) {
     if(stat(dir,&st)<0) { free(dir); return 0; }
-    if(st.st_ino == root_ino) { free(dir); return 0; }
-    if(st.st_ino == path_ino) { free(dir); return 1; }
+    if(st.st_ino == root_ino && st.st_dev == root_dev) {
+      free(dir);
+      return 0;
+    }
+    if(st.st_ino == path_ino && st.st_dev == path_dev) {
+      free(dir);
+      return 1;
+    }
     dir = strdupcatnfree(dir,"../",0,dir,0);
   }
   free(dir);
   return 0;
+}
+
+static int track_path(char *path,char *dir) {
+  int r;
+
+  r = track_path_main(path,dir);
+  log_debug(("track_path: path='%s' dir='%s': returns %d",path,dir,r));
+  return r;
 }
 
 static int is_regular(char *dir,char *file) {
