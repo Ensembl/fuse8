@@ -46,7 +46,7 @@ those. Everything else at the top level is just support for this.
 Threading Model
 ===============
 
-Systems like this really demand an event-driven model (per ngninx, etc).
+Systems like this really demand an event-driven model (per nginx, etc).
 We use libevent. Unfortunately, file-access is badly supported with an
 event-model, and the FUSE interface doesn't really support a non-blocking
 listener. Therefore, we also use pthreads. Interfaces can run in their
@@ -62,14 +62,14 @@ worry about races or locks.
 References
 ==========
 
-To manage memory and other sources, which is taken seriously, a system
+To manage memory and other resources, which is taken seriously, a system
 of references from whitebox is used, which are based on the model in
 explicit reference-counting form Objective-C. Each reference contains two
 numbers, of strong and weak links. When the strong count reaches zero, then
 release is called, when weak is also zero, free is called. The idea is that
 release essentially close down an object, removing its references, making
-it nullary and empty, while keeping it active. This removes references
-which might create cycles as this will involve releasing strong references
+it nullary and empty, while keeping it valid. This removes references
+which might create cycles, as to do so will involve releasing strong references
 to other objects. As release is only called once, eventually this results
 in a graph containing many nodes and no links. At this point free can be
 safely called on each object without having to worry about dangling
@@ -104,14 +104,14 @@ A request includes a range, based on the ranges type from whitebox. While
 this is initially a single interval, sources can paritally satisfy requests
 and also expand them, leading to a pretty arbitrary range as the requested
 interval passes through the list of sources. sources expand ranges in order
-that complete blocks are retrieved for the purposes of subsequent cacheing.
+that complete blocks are retrieved for the purposes of subsequent caching.
 For example, a request of four bytes could be satisfied by an http request
 but clearly cannot be efficiently cached without hassle. When a block is
 retrieved, the source calls back to request with the data. request then
 examines whether it satisfies all or part of the original request and, if
 so, copies it to the right part of the reply buffer. When this is done, the
 request callback is triggered into the interface. However, as each piece of
-data is reported to request, it also keeps the entire respons in chunks,
+data is reported to request, it also keeps the entire response in chunks,
 which are linked to the request. Once the request is satisfied, the list
 of sources is rerun for each chunk through write calls, allowing caches to
 store the data, even if it was not originally requested when they saw it

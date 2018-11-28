@@ -12,3 +12,4 @@ fuse8
 *.log.*
 *.pid
 version.c
+*.geany

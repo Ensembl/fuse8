@@ -1,7 +1,7 @@
 #
 # 'make depend' uses makedepend to automatically generate dependencies 
 #               (dependencies are added to end of Makefile)
-# 'make'        build executable file 'mycc'
+# 'make'        build executable file
 # 'make clean'  removes all .o and executable files
 #
 
