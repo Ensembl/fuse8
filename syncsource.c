@@ -29,6 +29,7 @@ struct member {
   struct block *bk;
   struct request *rq;
   struct chunk *ck;
+  int failed_errno;
 };
 
 struct syncqueue {
@@ -42,24 +43,26 @@ struct syncqueue {
 // XXX sync prefilter
 static void add_a(struct syncqueue *sq,enum atype type,
                    struct syncsource *src,
-                   struct request *rq,struct chunk *ck);
+                   struct request *rq,struct chunk *ck,int);
     
 static void job(struct syncqueue *sq,struct member *job) {
   struct chunk *ck;
+  int failed_errno;
 
   log_debug(("worker job type Q%d",job->type.q));
+  failed_errno = 0;
   switch(job->type.q) {
   case Q_CLOSE:
     job->src->close(job->src);
-    add_a(sq,A_CLOSE,job->src,0,0);
+    add_a(sq,A_CLOSE,job->src,0,0,0);
     break;
   case Q_READ:
-    ck = job->src->read(job->src,job->rq);
-    add_a(sq,A_READ,job->src,job->rq,ck);
+    ck = job->src->read(job->src,job->rq,&failed_errno);
+    add_a(sq,A_READ,job->src,job->rq,ck,failed_errno);
     break;
   case Q_WRITE:
     job->src->write(job->src,job->rq,job->ck);
-    add_a(sq,A_WRITE,job->src,job->rq,0);
+    add_a(sq,A_WRITE,job->src,job->rq,0,0);
     break;
   }
   if(job->src && job->src->src) { src_release(job->src->src); }
@@ -88,7 +91,12 @@ static int result(struct syncqueue *q,struct member *job) {
   case A_READ:
     if(job->ck) { rq_found_data(job->rq,job->ck); }
     src_release(job->src->src);
-    rq_run_next(job->rq);
+    if(job->failed_errno) {
+      log_debug(("syncsource failed errno=%d",job->failed_errno));
+      rq_error(job->rq,job->failed_errno);
+    } else {    
+      rq_run_next(job->rq);
+    }
     rq_release(job->rq);
     break;
   case A_WRITE:
@@ -125,7 +133,7 @@ struct event * sq_consumer(struct syncqueue *sq) {
 static struct member * new_member_ck(union type type,
                                      struct syncsource *src,
                                      struct request *rq,
-                                     struct chunk *ck) {
+                                     struct chunk *ck,int failed_errno) {
   struct member *m;
 
   m = safe_malloc(sizeof(struct member));
@@ -134,6 +142,7 @@ static struct member * new_member_ck(union type type,
   m->src = src;
   m->rq = rq;
   m->ck = ck;
+  m->failed_errno = failed_errno;
   return m;
 }
 
@@ -143,17 +152,17 @@ static void add_q(struct syncqueue *sq,enum qtype qtype,
   union type type;
 
   type.q = qtype;
-  wqueue_send_work(sq->qu,new_member_ck(type,src,rq,ck));
+  wqueue_send_work(sq->qu,new_member_ck(type,src,rq,ck,0));
 }
 
 
 static void add_a(struct syncqueue *sq,enum atype atype,
                    struct syncsource *src,struct request *rq,
-                   struct chunk *ck) {
+                   struct chunk *ck,int failed_errno) {
   union type type;
 
   type.a = atype;
-  evdata_send(sq->ans,new_member_ck(type,src,rq,ck));
+  evdata_send(sq->ans,new_member_ck(type,src,rq,ck,failed_errno));
 }
 
 static void sq_destroy(void *data) {
@@ -168,7 +177,7 @@ static void sq_destroy(void *data) {
   }
   ref_acquire_weak(&(sq->r)); /* We hang around until A_QUIT processed */
   log_debug(("threads released, waiting for A_QUIT"));
-  add_a(sq,A_QUIT,0,0,0);
+  add_a(sq,A_QUIT,0,0,0,0);
 }
 
 static void sq_free(void *data) {

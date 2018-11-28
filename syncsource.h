@@ -12,7 +12,7 @@ struct syncqueue * sq_create(struct event_base *eb);
 struct event * sq_consumer(struct syncqueue *ed);
 
 typedef void (*ss_fn)(struct syncsource *);
-typedef struct chunk * (*ss_read_fn)(struct syncsource *,struct request *rq);
+typedef struct chunk * (*ss_read_fn)(struct syncsource *,struct request *rq,int *);
 typedef struct chunk * (*ss_write_fn)(struct syncsource *,struct request *rq,
                                       struct chunk *ck);
 

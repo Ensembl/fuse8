@@ -92,8 +92,8 @@ static int is_regular(char *dir,char *file) {
   return 1;
 }
 
-static void do_request(int fd,struct syncsource *ss,
-                       int64_t start,int64_t len,struct chunk **ck) {
+static int do_request(int fd,struct syncsource *ss,
+                      int64_t start,int64_t len,struct chunk **ck) {
   char *buf;
   int n;
 
@@ -101,14 +101,17 @@ static void do_request(int fd,struct syncsource *ss,
   log_debug(("do_request %"PRId64"+%"PRId64,start,len));
   if(lseek(fd,start,SEEK_SET)>=0) {
     n = read_all(fd,buf,len);
-    if(n<0) { return; }
+    if(n<0) { return errno; }
     *ck = rq_chunk(syncsource_source(ss),buf,start,n,n<len,*ck);
     free(buf);
+    return 0;
+  } else {
+    return errno;
   }
-  // XXX own our errors
 }
 
-static struct chunk * file_read(struct syncsource *ss,struct request *rq) {
+static struct chunk * file_read(struct syncsource *ss,struct request *rq,
+                                int *failed_errno) {
   struct file *c = (struct file *)(ss->priv);
   struct chunk *ck = 0;
   struct ranges blocks;
@@ -119,24 +122,37 @@ static struct chunk * file_read(struct syncsource *ss,struct request *rq) {
 
   if(!strncmp(rq->spec,PREFIX,strlen(PREFIX))) {
     to_dir_file(rq->spec+strlen(PREFIX),&dir,&file);
-    if(*file && track_path(c->root,dir) && is_regular(dir,file)) {
-      ranges_copy(&blocks,&(rq->desired));
-      ranges_blockify_expand(&blocks,FILEBLOCKSIZE);
-      if(log_do_debug) {
-        char *r1 = ranges_print(&(rq->desired));
-        char *r2 = ranges_print(&blocks);
-        log_debug(("desired: %s expanded: %s size=%d",r1,r2,FILEBLOCKSIZE));
-        free(r1);
-        free(r2);
+    if(*file) {
+      int track_ok = track_path(c->root,dir);
+      int regular_ok = is_regular(dir,file);
+      if(!track_ok) { *failed_errno = EPERM; }
+      if(!regular_ok) { *failed_errno = ENOENT; }
+      if(track_ok && regular_ok) {
+        ranges_copy(&blocks,&(rq->desired));
+        ranges_blockify_expand(&blocks,FILEBLOCKSIZE);
+        if(log_do_debug) {
+          char *r1 = ranges_print(&(rq->desired));
+          char *r2 = ranges_print(&blocks);
+          log_debug(("desired: %s expanded: %s size=%d",r1,r2,FILEBLOCKSIZE));
+          free(r1);
+          free(r2);
+        }
+        file = strdupcatnfree(dir,file,0,file,0);
+        fd = open(file,O_RDONLY);
+        if(fd!=-1) {
+          ranges_start(&blocks,&ri);
+          while(ranges_next(&ri,&x,&y)) {
+            if(do_request(fd,ss,x,y-x,&ck)) {
+              *failed_errno = errno;
+              break;
+            }
+          }
+          ranges_free(&blocks);
+          close(fd);
+        } else {
+          *failed_errno = errno;
+        }
       }
-      file = strdupcatnfree(dir,file,0,file,0);
-      fd = open(file,O_RDONLY); // XXX errors
-      ranges_start(&blocks,&ri);
-      while(ranges_next(&ri,&x,&y)) {
-        do_request(fd,ss,x,y-x,&ck);
-      }
-      ranges_free(&blocks);
-      close(fd);
     }
     free(dir);
     free(file);
