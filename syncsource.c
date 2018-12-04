@@ -65,7 +65,6 @@ static void job(struct syncqueue *sq,struct member *job) {
     add_a(sq,A_WRITE,job->src,job->rq,0,0);
     break;
   }
-  if(job->src && job->src->src) { src_release(job->src->src); }
 }
 
 static void * worker(void *data) {
@@ -90,13 +89,13 @@ static int result(struct syncqueue *q,struct member *job) {
     break;
   case A_READ:
     if(job->ck) { rq_found_data(job->rq,job->ck); }
-    src_release(job->src->src);
     if(job->failed_errno) {
       log_debug(("syncsource failed errno=%d",job->failed_errno));
       rq_error(job->rq,job->failed_errno);
     } else {    
       rq_run_next(job->rq);
     }
+    src_release(job->src->src);
     rq_release(job->rq);
     break;
   case A_WRITE:
@@ -133,12 +132,12 @@ struct event * sq_consumer(struct syncqueue *sq) {
 static struct member * new_member_ck(union type type,
                                      struct syncsource *src,
                                      struct request *rq,
-                                     struct chunk *ck,int failed_errno) {
+                                     struct chunk *ck,int acq,int failed_errno) {
   struct member *m;
 
   m = safe_malloc(sizeof(struct member));
   m->type = type;
-  if(src && src->src) { src_acquire(src->src); }
+  if(src && src->src && acq) { src_acquire(src->src); }
   m->src = src;
   m->rq = rq;
   m->ck = ck;
@@ -152,7 +151,7 @@ static void add_q(struct syncqueue *sq,enum qtype qtype,
   union type type;
 
   type.q = qtype;
-  wqueue_send_work(sq->qu,new_member_ck(type,src,rq,ck,0));
+  wqueue_send_work(sq->qu,new_member_ck(type,src,rq,ck,1,0));
 }
 
 
@@ -162,7 +161,7 @@ static void add_a(struct syncqueue *sq,enum atype atype,
   union type type;
 
   type.a = atype;
-  evdata_send(sq->ans,new_member_ck(type,src,rq,ck,failed_errno));
+  evdata_send(sq->ans,new_member_ck(type,src,rq,ck,0,failed_errno));
 }
 
 static void sq_destroy(void *data) {
